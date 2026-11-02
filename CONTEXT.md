@@ -81,7 +81,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 7 | theme-support | DONE |
 | 8 | wildcard-checklist | DONE |
 | 9 | tests-and-polish | DONE |
-| 10 | readme-docs | TODO |
+| 10 | readme-docs | DONE |
 | 11 | decisions-md | TODO |
 | 12 | final-audit | TODO |
 
@@ -137,6 +137,9 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Server test binaries use `server/test/.mongodb-binaries` so the test runner does not need to write outside the repository workspace.
 - Step 9 verifies 7 server tests and 3 client store tests; root `npm test` passes. Both ESLint scripts and the client production build pass. Tests cover fractional indexes, CRUD/status validation, stale move conflicts, idempotent replay, five simultaneous moves, atomic checklist edits, optimistic move, rollback, and FIFO ordering.
 - Step 9 audit fixed the missing root `npm run seed` forwarding script, added root `test`/`lint` scripts, removed the accidental client file dependency, added dialog keyboard focus management, and removed production `console.log` calls. No console.log calls remain under client/server source or scripts.
+- Step 10 adds the root README with project overview, Mermaid architecture, representative folder tree, prerequisites, local/Atlas replica-set notes, environment setup, run/seed/test commands, optimistic-failure demo, concurrency script usage, API reference, theme behavior, and a screenshot placeholder.
+- The server env template covers `MONGO_URI`, `PORT`, and `CLIENT_ORIGIN`; the client env template covers `VITE_API_URL` with the `/api` prefix. Both use local development values and contain no credentials. No env template changes were needed.
+- Step 10 verified the documented root test/lint/build commands: `npm test`, `npm run lint`, and `npm run build --prefix client` all pass. The API table was checked against `server/src/routes/taskRoutes.js`; the documented concurrency command matches the server script name.
 
 ## AI MISTAKES LOG
 
@@ -158,7 +161,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - The standalone `server/scripts/concurrencyTest.js` was not separately run; the Step 9 integration suite exercised five concurrent moves against a replica-set MongoDB Memory Server.
 - Step 7's visual reload checks in both themes and browser verification have not been run yet; contrast ratios are computed from the palette hex values and implemented classes.
 - Step 8 atomic checklist API behavior is covered by the passing integration suite. Client checklist rollback/progress UI and seed contents still need manual verification.
-- `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
+- `DECISIONS.md` remains for the next planned step.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
 - Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
 
@@ -236,6 +239,26 @@ Likely interview questions:
 - Manual browser checks for keyboard focus restoration, mobile layout, empty/error/loading states, theme reload, and live optimistic rollback remain recommended before the final submission.
 - `npm run seed` is destructive to the configured Task collection; only run it against a disposable database.
 
+## Step 10 defense
+
+The README presents the system from the user-facing app down to its persistence path: React components call Zustand actions, the shared Axios layer calls Express routes, validation middleware checks input, controllers apply MongoDB operations through Mongoose, and the client reconciles the returned result. Its setup section separates root/client/server installs and documents that transactions require a replica set. The API table and command snippets were checked against the route definitions and package scripts.
+
+Trade-off: a single root README is easy for an evaluator to follow, while environment files remain beside the app that consumes them. The README includes a screenshot placeholder instead of a fabricated capture. It also warns that seeding is destructive and that the dedicated concurrency script needs both the API and MongoDB running.
+
+Likely interview questions:
+
+1. **Why does local setup mention a MongoDB replica set?** The move handler uses transactions for idempotency and rebalancing; standalone MongoDB cannot execute those writes.
+2. **Why are environment templates split by app?** Server-only database and CORS settings stay in `server/.env`; Vite exposes only the API URL to browser code.
+3. **Why include a screenshot placeholder?** It marks the intended documentation location without implying a screenshot was captured or checked in.
+
+## Step 10 verification
+
+- Confirm the README command names match the root and server `package.json` scripts.
+- Confirm both example files contain the required variables and no database credentials or tokens.
+- Follow the setup instructions with a disposable local replica-set database; verify `/api/health` from the browser.
+- Run `npm test`, `npm run lint`, and `npm run build --prefix client` using the instructions documented in the README.
+- Verify the concurrency script only after starting the API and configuring a disposable replica-set database.
+
 ## GIT COMMANDS
 
 The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Continue on the existing `feature/project-setup` branch for every remaining step, push that branch, and open a PR to `main` when the assessment is ready.
@@ -249,29 +272,17 @@ git status
 Atomic commits:
 
 ```sh
-git add server/test server/eslint.config.js server/package.json server/package-lock.json
-git commit -m "test: cover task api and concurrent writes"
-
-git add client/src/store/boardStore.test.js client/package.json client/package-lock.json
-git commit -m "test: cover optimistic store and queue behavior"
-
-git add client/eslint.config.js client/src/hooks/useDialogFocus.js client/src/components/TaskModal.jsx client/src/components/ConfirmDelete.jsx
-git commit -m "chore: lint client and improve dialog keyboard support"
-
-git add package.json package-lock.json .gitignore server/src/server.js server/src/scripts/seed.js server/scripts/concurrencyTest.js
-git commit -m "chore: add root verification and seed scripts"
-
-git add docs/REQUIREMENTS.md
-git commit -m "docs: update assessment requirement status"
+git add README.md
+git commit -m "docs: add TaskFlow setup and usage guide"
 
 git add CONTEXT.md
-git commit -m "docs: update context after tests-and-polish"
+git commit -m "docs: update context after readme-docs"
 ```
 
 Push:
 
 ```sh
-git push origin feature/project-setup
+git push -u origin feature/project-setup
 ```
 
 Pull Request:
@@ -292,4 +303,4 @@ Run this cleanup only after the final PR is merged on GitHub.
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `readme-docs`.
+Next step: `decisions-md`.
