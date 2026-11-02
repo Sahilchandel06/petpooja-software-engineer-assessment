@@ -31,6 +31,9 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
   if (!task) return null;
 
   const columnIndex = COLUMNS.findIndex(({ id }) => id === task.columnId);
+  const checklist = task.subtasks || [];
+  const completedCount = checklist.filter((subtask) => subtask.completed).length;
+  const checklistPercent = checklist.length ? Math.round((completedCount / checklist.length) * 100) : 0;
 
   function getPositionIndex(ids, insertionIndex, tasksById) {
     const previous = insertionIndex > 0 ? tasksById[ids[insertionIndex - 1]].orderIndex : null;
@@ -106,6 +109,27 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
           ))}
         </ul>
       )}
+
+      <div className="mt-3" aria-label="Checklist completion">
+        <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+          <span>Checklist</span>
+          <span>{completedCount}/{checklist.length} · {checklistPercent}%</span>
+        </div>
+        <div
+          role="progressbar"
+          aria-label={`Checklist progress for ${task.title}`}
+          aria-valuemin={0}
+          aria-valuemax={checklist.length || 1}
+          aria-valuenow={completedCount}
+          aria-valuetext={checklist.length ? `${completedCount} of ${checklist.length} complete, ${checklistPercent}%` : 'No checklist items, 0%'}
+          className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+        >
+          <div
+            className="h-full rounded-full bg-indigo-600 transition-[width] duration-500 ease-out motion-reduce:transition-none dark:bg-indigo-400"
+            style={{ width: `${checklistPercent}%` }}
+          />
+        </div>
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
         <button type="button" disabled={task._pending} onClick={() => onEdit(taskId)} aria-label={`Edit ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait dark:text-indigo-300 dark:hover:bg-slate-700">Edit</button>
