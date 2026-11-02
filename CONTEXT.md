@@ -17,6 +17,7 @@ Build the TaskFlow resilient Kanban assessment from `docs/ASSESSMENT.pdf`, the s
 - Never invent AI mistakes. Only log a mistake in the AI MISTAKES LOG if it truly happened.
 - Never run git commands yourself. Only PRINT them for me to run.
 - Ask me before deviating from the spec.
+- Use the existing `feature/project-setup` branch for all remaining steps; do not create a new branch per step. Push each step's commits to this same feature branch and merge the completed work into `main` through a Pull Request.
 
 ## STEP-END PROTOCOL
 
@@ -137,12 +138,12 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - The new concurrency script and transaction/rebalance paths have not been executed against MongoDB. API/client build verification remains pending.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
-- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the requested `feature/concurrency` branch command was printed but not executed. Earlier Step 1–5 commits may therefore not be on `main`.
+- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
 
 ## Last updated, current branch, last commit
 
 - Last updated: 2026-11-02
-- Current worktree branch recorded at Step 6 start: `feature/project-setup`; requested branch: `feature/concurrency` (checkout not verified)
+- Branch workflow: continue on `feature/project-setup` for all remaining steps; push each step's commits there and open one PR to `main` when ready. The user confirmed this branch in their IDE/GitHub view.
 - Last commit: not inspected (Git commands are reserved for the user)
 
 ## Defend it
@@ -172,7 +173,7 @@ Likely interview questions:
 
 ## GIT COMMANDS
 
-The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. The worktree was on `feature/project-setup` at Step 6 start; branch from this history if Steps 1–5 are not yet on `main`.
+The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Continue on the existing `feature/project-setup` branch for every remaining step, push that branch, and open a PR to `main` when the assessment is ready.
 
 Verification:
 
@@ -199,19 +200,19 @@ git commit -m "docs: update context after concurrency"
 Push:
 
 ```sh
-git push -u origin feature/concurrency
+git push origin feature/project-setup
 ```
 
 Pull Request:
 
-- Title: `feat: serialize versioned task moves with idempotency`
-- Description: Add a client FIFO move queue, UUID retry safety, server version conflict responses, transactional idempotency and order rebalancing, and a concurrency integration script.
+- Title: `feat: complete TaskFlow assessment implementation`
+- Description: Implement the assessment in steps on the existing `feature/project-setup` branch. Merge the completed branch into `main` on GitHub, not locally.
 - Open a PR into `main` and merge it on GitHub, not locally.
 
 Cleanup after the PR is merged:
 
 ```sh
-git checkout main && git pull origin main && git branch -d feature/concurrency
+git checkout main && git pull origin main && git branch -d feature/project-setup
 ```
 
 ## HOW TO RESUME
