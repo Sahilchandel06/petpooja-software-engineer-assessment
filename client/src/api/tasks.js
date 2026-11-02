@@ -18,3 +18,8 @@ export async function patchTask(taskId, changes) {
 export async function removeTask(taskId) {
   await http.delete(`/tasks/${taskId}`);
 }
+
+export async function moveTask(taskId, move) {
+  const { data } = await http.patch(`/tasks/${taskId}/move`, move);
+  return data;
+}

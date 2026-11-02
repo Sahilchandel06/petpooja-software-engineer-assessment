@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getTasks, patchTask, postTask, removeTask } from '../api/tasks.js';
+import { getTasks, moveTask as sendMoveTask, patchTask, postTask, removeTask } from '../api/tasks.js';
 
 export const COLUMNS = [
   { id: 'todo', title: 'To Do' },
@@ -84,47 +84,43 @@ export const useBoardStore = create((set, get) => ({
     });
   },
 
-  // Step 3 controls intentionally move only local state; persistence arrives with the move API later.
-  moveTaskLocally(taskId, direction) {
-    const task = get().tasksById[taskId];
-    if (!task) return;
+  async moveTask(taskId, toColumnId, targetIndex) {
+    const beforeMove = get();
+    const task = beforeMove.tasksById[taskId];
+    if (!task || !beforeMove.columnIds[toColumnId]) return;
 
-    const columnIndex = COLUMNS.findIndex(({ id }) => id === task.columnId);
-    const currentIds = get().columnIds[task.columnId];
-    const taskIndex = currentIds.indexOf(taskId);
+    const targetIds = removeId(beforeMove.columnIds[toColumnId], taskId);
+    let insertionIndex = targetIds.findIndex((id) => (
+      beforeMove.tasksById[id].orderIndex > targetIndex
+    ));
+    if (insertionIndex === -1) insertionIndex = targetIds.length;
+    targetIds.splice(insertionIndex, 0, taskId);
 
-    if (direction === 'up' || direction === 'down') {
-      const targetIndex = taskIndex + (direction === 'up' ? -1 : 1);
-      if (targetIndex < 0 || targetIndex >= currentIds.length) return;
-
-      const nextIds = [...currentIds];
-      [nextIds[taskIndex], nextIds[targetIndex]] = [nextIds[targetIndex], nextIds[taskIndex]];
-      set((state) => ({
-        columnIds: { ...state.columnIds, [task.columnId]: nextIds },
-      }));
-      return;
-    }
-
-    const targetColumnIndex = columnIndex + (direction === 'left' ? -1 : 1);
-    if ((direction !== 'left' && direction !== 'right')
-      || targetColumnIndex < 0 || targetColumnIndex >= COLUMNS.length) return;
-
-    const targetColumnId = COLUMNS[targetColumnIndex].id;
-    const targetIds = get().columnIds[targetColumnId];
-    const nextOrderIndex = targetIds.length
-      ? get().tasksById[targetIds[targetIds.length - 1]].orderIndex + 1000
-      : 1000;
-
+    // Move the card immediately; Step 5 adds snapshot rollback for failed requests.
     set((state) => ({
       tasksById: {
         ...state.tasksById,
-        [taskId]: { ...task, columnId: targetColumnId, orderIndex: nextOrderIndex },
+        [taskId]: { ...task, columnId: toColumnId, orderIndex: targetIndex },
       },
       columnIds: {
         ...state.columnIds,
         [task.columnId]: removeId(state.columnIds[task.columnId], taskId),
-        [targetColumnId]: [...state.columnIds[targetColumnId], taskId],
+        [toColumnId]: targetIds,
       },
     }));
+
+    const operationId = globalThis.crypto?.randomUUID?.()
+      || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const savedTask = await sendMoveTask(taskId, {
+      columnId: toColumnId,
+      orderIndex: targetIndex,
+      version: task.version || 0,
+      operationId,
+    });
+
+    set((state) => ({
+      tasksById: { ...state.tasksById, [taskId]: savedTask },
+    }));
+    return savedTask;
   },
 }));
