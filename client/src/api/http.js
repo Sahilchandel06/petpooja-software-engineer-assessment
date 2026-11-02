@@ -3,7 +3,8 @@ import axios from 'axios';
 // Keep the API base URL in one place so local and deployed clients share request code.
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  timeout: 10000,
+  // Render's free API can take over 50 seconds to wake from sleep, so allow a cold start.
+  timeout: 90000,
 });
 
 let simulateFailures = false;
