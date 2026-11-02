@@ -49,8 +49,8 @@ E. Tell me the exact next step name and wait for my "go".
 | R6 | Done |
 | R7 | Done |
 | R8 | Done |
-| R9 | Not started |
-| R10 | In progress |
+| R9 | Done |
+| R10 | Done |
 | R11 | Not started |
 | R12 | Not started |
 | R13 | Not started |
@@ -74,7 +74,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 3 | kanban-crud-ui | DONE |
 | 4 | drag-and-drop | DONE |
 | 5 | optimistic-ui | DONE |
-| 6 | concurrency | TODO |
+| 6 | concurrency | DONE |
 | 7 | theme-support | TODO |
 | 8 | wildcard-checklist | TODO |
 | 9 | tests-and-polish | TODO |
@@ -105,11 +105,20 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - The step 3 arrow controls update local Zustand state; step 4 converts them to the same persisted `moveTask` action used by drag-and-drop.
 - Step 4 adds a droppable target for every column (including empty ones), an overlay preview, same-column/cross-column placement, and a client fractional-index helper.
 - `moveTask(taskId, toColumnId, targetIndex)` updates normalized state first, then PATCHes the move endpoint with the current version and generated operation ID.
-- The backend move controller performs one `findOneAndUpdate` with `$set` for column/order and `$inc` for version. Version conflict checks and operation-ID idempotency are reserved for step 6.
+- Step 4 initially used one `findOneAndUpdate` with `$set` for column/order and `$inc` for version; Step 6 now filters that update by the observed version and wraps it with transactional idempotency/rebalance handling.
 - Snapshot every mutation before changing Zustand. Moves retain the old task and affected column ID arrays; edits retain the old task; deletes retain the task and its prior column position; creates retain the prior column IDs and use a temporary `temp-*` ID.
 - All four mutations update the board before the request. Success reconciles from the API response (including the server task ID, `orderIndex`, and `version`); failure restores the snapshot and shows one `react-hot-toast` error.
 - Configure the shared Axios client with a 10-second timeout and a development-only request switch that adds `x-simulate-fail: true` to write requests. Read requests are not modified.
 - Mutations do not set the board loading state or refetch tasks; request failures work both for server 500 responses and no-response/timeout network errors.
+- Step 6 serializes move HTTP writes through a shared FIFO queue while keeping each optimistic move synchronous. Move IDs are RFC 4122 UUIDs and a no-response/timeout retry reuses its original request body and operation ID.
+- Queue failure policy: restore the failed task from its last confirmed server record and drop later queued operations for that same task; retain other tasks' operations and resolve their before/after neighbor anchors when they reach the front. This avoids applying a dependent drag over an unknown state without penalizing independent cards.
+- Keep `confirmedTasksById` separate from optimistic `tasksById`. Each queued move reads the latest confirmed version when sent; successful responses update the version while preserving a later optimistic location for that card.
+- `/api/tasks/:id/move` validates UUID and version, checks idempotency, and performs order changes in a MongoDB transaction. Its conditional `findOneAndUpdate({ _id, version }, { $set, $inc: { version: 1 } })` is the final task write; a stale version returns 409 with `error.currentTask` for client reconciliation.
+- `MoveOperation` keeps the UUID, request identity, result, and expiry. A unique operation-ID index prevents duplicate application; a 24-hour TTL index cleans records. The server builds these indexes before listening.
+- When target neighbors have a gap at or below epsilon, the move transaction spaces the destination column's existing tasks, increments their versions, and returns those rebalance records with the moved task so the client reconciles without refetching.
+- MongoDB transactions require a replica set. MongoDB Atlas works; local standalone deployments receive a 503 with the `mongod --replSet rs0` / `rs.initiate()` setup path. There is no unsafe non-transaction fallback.
+- Task creation is protected from same-tick duplicate submits by both the disabled pending button and a synchronous form ref guard.
+- `server/scripts/concurrencyTest.js` uses five concurrent distinct moves, replays an operation UUID, checks a stale-version 409, and asserts no lost/duplicate test cards and distinct ordered positions. It was not run because it writes to the configured database.
 
 ## AI MISTAKES LOG
 
@@ -122,48 +131,48 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 
 - Server dependency installation reported 3 npm audit vulnerabilities (2 moderate, 1 high); review during tests-and-polish without applying unapproved version changes.
 - The seed command intentionally deletes every document from the Task collection before inserting its sample board. Do not run it against a database containing tasks that need to be kept.
-- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The concurrency step must harden this write path.
-- Snapshot rollback is scoped to the affected task and columns; broader overlapping mutation conflict handling remains for step 6.
-- The move endpoint accepts version and operation ID but does not enforce conflicts or idempotent retries yet; that is step 6.
-- Rapid moves can race or resolve out of order until the step 6 interaction guard is implemented.
+- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. This is outside Step 6's move-write scope and remains for tests-and-polish review.
+- Move rollback/conflict handling now covers queued moves; overlapping edit/delete requests against the same task are not serialized by the move queue.
+- Versioned `/move` writes require a MongoDB replica set; local standalone MongoDB returns a documented 503 until configured as a replica set.
+- The new concurrency script and transaction/rebalance paths have not been executed against MongoDB. API/client build verification remains pending.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
-- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/optimistic-ui` and was given the checkout command.
+- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the requested `feature/concurrency` branch command was printed but not executed. Earlier Step 1–5 commits may therefore not be on `main`.
 
 ## Last updated, current branch, last commit
 
 - Last updated: 2026-11-02
-- Current branch: `feature/optimistic-ui` (requested branch; checkout not verified)
+- Current worktree branch recorded at Step 6 start: `feature/project-setup`; requested branch: `feature/concurrency` (checkout not verified)
 - Last commit: not inspected (Git commands are reserved for the user)
 
 ## Defend it
 
-Each write action snapshots only the state needed to reverse its own optimistic change. A move stores the previous task object plus copied source and destination column ID arrays; on failure these restore both the card fields and its exact prior order. An edit stores the previous task object. A delete stores the removed task and its prior column list/index so it can reinsert the card. A create stores the destination column IDs, inserts a temporary task under a `temp-*` ID, and removes that ID on failure; on success it removes the temporary record and inserts the server task under its MongoDB ID/order. These snapshots make rollback local and immediate without refetching unrelated tasks.
+Step 6 move flow: a drag/button calls `moveTask`, which records neighbor IDs and immediately updates the Zustand board. The action enqueues a task-scoped operation. When its turn arrives, it reads the latest confirmed version, rebases the target from available neighbor anchors, and sends one UUID-keyed PATCH. The server starts a session, returns an already-recorded result for an exact replay, checks the current version, optionally rebalances destination neighbors inside the transaction, and conditionally updates the moved task by `_id` plus version. It stores the result before commit. The client accepts server versions and any rebalance records. A 409 reconciles the returned current task; another failure restores the confirmed record, drops queued moves for that card, retains independent moves, and displays one toast.
+
+For five drags in one second over a slow 3G connection: each drag updates Zustand immediately and enqueues a distinct UUID operation; only the first HTTP call starts. The next four wait FIFO while the first request is in flight. On each success, its server version becomes the version used by the next request, and neighbor anchors are resolved against current board order. If a move fails, later queued moves for that same card are dropped and the card returns to confirmed server state; moves for other cards continue. A lost response retries once with the identical UUID and payload, so server idempotency returns the original result instead of applying it twice. Version conflicts include currentTask and are reconciled.
 
 The shared Axios request interceptor adds `x-simulate-fail: true` only to writes while the development switch is enabled and aborts requests after ten seconds. Store catch blocks restore state, translate HTTP/network/timeout errors into one toast, and rethrow so forms can keep their inline error. Mutations do not set the board loading flag.
 
 Likely interview questions:
 
-1. **What exactly does a move snapshot contain, and why?** It contains the moved task record and copies of the source and destination ordered-ID arrays. Together they restore the card's old column, orderIndex, and position relative to neighboring cards without a refetch.
-2. **How does create transition from temporary to persisted?** The store adds a `temp-*` task and ID immediately. When POST returns, it removes that record and inserts the response under its MongoDB `_id` at the server's orderIndex; on failure it removes the temporary entry and toast reports the error.
-3. **How do you handle server and network failures?** HTTP errors use the API's JSON message; no-response errors explain that the API is unreachable; timeouts have their own message. Every mutation restores its snapshot before showing the toast.
+1. **Why have a FIFO queue if the UI is already optimistic?** It lets the user see every drag immediately but sends writes in order, preventing requests from racing with a stale version.
+2. **What happens to five moves during a 3G delay?** The first writes immediately, the other four wait; each later request reads the latest confirmed version and resolves its anchors at send time. Same-task dependent requests are dropped after failure, independent requests continue, and a UUID retry is idempotent.
+3. **Why use a transaction and operation collection?** The transaction groups neighbor reindexing, version-checked task update, and idempotency result record so none can commit without the others. The TTL collection prevents a replay from applying twice and expires old records automatically.
 ## How to verify
 
-- `npm run build --prefix client` (passed during this step).
-- Ensure MongoDB is running and both `.env` files are configured, then start the stack with `npm run dev` from the repository root.
-- **Manual rollback script:**
-  1. Turn on **Simulate failures (dev)** in the header.
-  2. Drag a card to another position. Confirm it moves immediately, then returns to its original column/order after the simulated 500 and shows one error toast.
-  3. Create a task, edit a task, and delete a task. For each action, confirm the UI updates before the response, then restores the prior board state after the 500; the create temporary ID should disappear.
-  4. Confirm these operations do not show a board-wide spinner or trigger a full task refetch.
-  5. Turn simulation off and retry an operation; confirm it persists after a refresh.
-- For real network errors, stop the server and try a move/create/edit/delete. Confirm rollback and the unreachable-server toast; restart the server without manually reloading the board.
-- To exercise timeout handling, throttle a request past 10 seconds in browser DevTools; confirm rollback and the timeout toast.
-- Confirm the switch appears only in Vite development mode and GET requests do not carry the simulation header.
+- Run `npm run build --prefix client`.
+- Configure `server/.env` for a MongoDB replica set (Atlas works), then run `npm run dev` from the repository root.
+- Run `npm run test:concurrency --prefix server` against a disposable database while the API is running; it creates and deletes five uniquely named temporary tasks.
+- In the UI, drag five different cards within about one second. Confirm cards move immediately, network requests are sent serially, and final column membership/order persist after refresh.
+- Send an old version to `/move`; confirm the client adopts `error.currentTask` and shows a conflict toast.
+- Queue multiple moves rapidly and simulate a failure; confirm later moves for that same card are dropped and it returns to server state while unrelated card moves still complete.
+- Replay one exact move request with the same operationId and payload; confirm task version increments only once. Verify an expired operation record is eventually removed by MongoDB's TTL monitor.
+- Create two neighboring order indexes within epsilon, then move a card between them; confirm the destination column is rebalanced and visible cards retain order without a refetch.
+- Manual Step 5 rollback checks remain applicable to create, edit, delete, and network failures.
 
 ## GIT COMMANDS
 
-The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Checkout of the requested branch remains unverified.
+The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. The worktree was on `feature/project-setup` at Step 6 start; branch from this history if Steps 1–5 are not yet on `main`.
 
 Verification:
 
@@ -174,36 +183,39 @@ git status
 Atomic commits:
 
 ```sh
-git add client/src/store/boardStore.js client/src/components/Board.jsx client/src/components/TaskCard.jsx client/src/components/TaskModal.jsx client/src/components/ConfirmDelete.jsx
-git commit -m "feat: add optimistic task mutation rollback"
+git add client/src/store/operationQueue.js client/src/store/boardStore.js client/src/utils/fractionalIndex.js client/src/components/TaskModal.jsx
+git commit -m "feat: serialize optimistic move operations"
 
-git add client/src/api/http.js client/src/components/Header.jsx
-git commit -m "feat: add simulated API failure switch"
+git add server/src/models/MoveOperation.js server/src/controllers/taskController.js server/src/routes/taskRoutes.js server/src/app.js server/src/server.js
+git commit -m "feat: enforce versioned idempotent task moves"
+
+git add server/scripts/concurrencyTest.js server/package.json
+git commit -m "test: add concurrent move integration script"
 
 git add CONTEXT.md
-git commit -m "docs: update context after optimistic-ui"
+git commit -m "docs: update context after concurrency"
 ```
 
 Push:
 
 ```sh
-git push -u origin feature/optimistic-ui
+git push -u origin feature/concurrency
 ```
 
 Pull Request:
 
-- Title: `feat: add optimistic task updates with rollback`
-- Description: Add snapshot-based optimistic moves and CRUD, temporary IDs for task creation, rollback toasts for HTTP/network/timeout failures, and a development failure switch.
+- Title: `feat: serialize versioned task moves with idempotency`
+- Description: Add a client FIFO move queue, UUID retry safety, server version conflict responses, transactional idempotency and order rebalancing, and a concurrency integration script.
 - Open a PR into `main` and merge it on GitHub, not locally.
 
 Cleanup after the PR is merged:
 
 ```sh
-git checkout main && git pull origin main && git branch -d feature/optimistic-ui
+git checkout main && git pull origin main && git branch -d feature/concurrency
 ```
 
 ## HOW TO RESUME
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `concurrency`.
+Next step: `theme-support`.
