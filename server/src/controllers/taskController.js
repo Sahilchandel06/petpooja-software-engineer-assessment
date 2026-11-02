@@ -46,6 +46,41 @@ export async function updateTask(request, response) {
   return response.status(200).json(task);
 }
 
+export async function addSubtask(request, response) {
+  // Push one item atomically and bump the shared task revision so stale moves receive 409.
+  const task = await Task.findByIdAndUpdate(
+    request.params.id,
+    { $push: { subtasks: { title: request.validated.body.title, completed: false } }, $inc: { version: 1 } },
+    { new: true, runValidators: true },
+  );
+  if (!task) throw apiError('Task not found', 404, 'TASK_NOT_FOUND');
+  return response.status(201).json(task);
+}
+
+export async function updateSubtask(request, response) {
+  // Positional updates touch one subdocument; no handler reads and rewrites the whole checklist.
+  const updates = Object.fromEntries(Object.entries(request.validated.body)
+    .map(([field, value]) => [`subtasks.$.${field}`, value]));
+  const task = await Task.findOneAndUpdate(
+    { _id: request.params.id, 'subtasks._id': request.params.subtaskId },
+    { $set: updates, $inc: { version: 1 } },
+    { new: true, runValidators: true },
+  );
+  if (!task) throw apiError('Task or subtask not found', 404, 'SUBTASK_NOT_FOUND');
+  return response.status(200).json(task);
+}
+
+export async function deleteSubtask(request, response) {
+  // Pull only the requested subdocument; the version increment informs stale move requests.
+  const task = await Task.findOneAndUpdate(
+    { _id: request.params.id, 'subtasks._id': request.params.subtaskId },
+    { $pull: { subtasks: { _id: request.params.subtaskId } }, $inc: { version: 1 } },
+    { new: true, runValidators: true },
+  );
+  if (!task) throw apiError('Task or subtask not found', 404, 'SUBTASK_NOT_FOUND');
+  return response.status(200).json(task);
+}
+
 export async function moveTask(request, response) {
   const { columnId, orderIndex, version, operationId } = request.validated.body;
   const taskId = request.params.id;
