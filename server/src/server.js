@@ -16,7 +16,7 @@ async function start() {
   // Build the unique operation key and TTL indexes before accepting move requests.
   await MoveOperation.init();
   app.listen(port, () => {
-    console.log(`TaskFlow API listening on port ${port}`);
+    console.info(`TaskFlow API listening on port ${port}`);
   });
 }
 

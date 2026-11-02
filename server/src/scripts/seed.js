@@ -32,7 +32,7 @@ async function seed() {
     // This command is an intentional reset so evaluators always get the same sample board.
     await Task.deleteMany({});
     await Task.insertMany(sampleTasks);
-    console.log(`Seeded ${sampleTasks.length} tasks across todo, in-progress, and done.`);
+    console.info(`Seeded ${sampleTasks.length} tasks across todo, in-progress, and done.`);
   } finally {
     await mongoose.disconnect();
   }

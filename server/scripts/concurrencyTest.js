@@ -62,7 +62,7 @@ async function main() {
     assert.equal(listedResponse.status, 200);
     const listedTestTasks = (await listedResponse.json()).filter((task) => task.title.startsWith(marker));
     assert.equal(listedTestTasks.length, created.length, 'the API exposes every test card exactly once');
-    console.log('Concurrency check passed: five concurrent moves, idempotent retry, version conflict, and unique final cards.');
+    console.info('Concurrency check passed: five concurrent moves, idempotent retry, version conflict, and unique final cards.');
   } finally {
     await Task.deleteMany({ title: { $regex: `^${marker}` } });
     await mongoose.disconnect();
