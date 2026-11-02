@@ -1,146 +1,117 @@
 import { memo } from 'react';
 import toast from 'react-hot-toast';
+import { ArrowDown, ArrowRight, ArrowUp, GripVertical, Minus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getIndexForPosition } from '../utils/fractionalIndex.js';
 import { COLUMNS, useBoardStore } from '../store/boardStore.js';
-
-const priorityClasses = {
-  Low: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-  Medium: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
-  High: 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200',
-};
+import { Avatar } from './ui/Avatar.jsx';
+import { Badge } from './ui/Badge.jsx';
+import { IconButton } from './ui/IconButton.jsx';
 
 export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit, onDelete }) {
   const task = useBoardStore((state) => state.tasksById[taskId]);
   const moveTask = useBoardStore((state) => state.moveTask);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: taskId,
-    data: { type: 'task', taskId, columnId: task?.columnId },
-    disabled: Boolean(task?._pending),
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: taskId, data: { type: 'task', taskId, columnId: task?.columnId }, disabled: Boolean(task?._pending),
   });
-
   if (!task) return null;
 
-  const columnIndex = COLUMNS.findIndex(({ id }) => id === task.columnId);
   const checklist = task.subtasks || [];
   const completedCount = checklist.filter((subtask) => subtask.completed).length;
-  const checklistPercent = checklist.length ? Math.round((completedCount / checklist.length) * 100) : 0;
+  const percent = checklist.length ? Math.round((completedCount / checklist.length) * 100) : 0;
+  const PriorityIcon = task.priority === 'High' ? ArrowUp : task.priority === 'Low' ? ArrowDown : Minus;
 
-  function getPositionIndex(ids, insertionIndex, tasksById) {
-    const previous = insertionIndex > 0 ? tasksById[ids[insertionIndex - 1]].orderIndex : null;
-    const next = insertionIndex < ids.length ? tasksById[ids[insertionIndex]].orderIndex : null;
-    return getIndexForPosition(previous, next);
-  }
-
-  function handleMove(direction) {
+  function move(direction) {
     const state = useBoardStore.getState();
-    const currentTask = state.tasksById[taskId];
-    if (!currentTask) return;
-
-    const currentIds = state.columnIds[currentTask.columnId];
+    const current = state.tasksById[taskId];
+    if (!current) return;
+    const currentIds = state.columnIds[current.columnId];
     const currentIndex = currentIds.indexOf(taskId);
-    let toColumnId = currentTask.columnId;
+    let toColumnId = current.columnId;
     let targetIds;
     let insertionIndex;
-
     if (direction === 'up' || direction === 'down') {
-      if ((direction === 'up' && currentIndex === 0)
-        || (direction === 'down' && currentIndex === currentIds.length - 1)) return;
+      if ((direction === 'up' && currentIndex === 0) || (direction === 'down' && currentIndex === currentIds.length - 1)) return;
       targetIds = currentIds.filter((id) => id !== taskId);
       insertionIndex = currentIndex + (direction === 'up' ? -1 : 1);
     } else {
-      const targetColumnIndex = columnIndex + (direction === 'left' ? -1 : 1);
+      const targetColumnIndex = COLUMNS.findIndex(({ id }) => id === current.columnId) + (direction === 'left' ? -1 : 1);
       if (targetColumnIndex < 0 || targetColumnIndex >= COLUMNS.length) return;
       toColumnId = COLUMNS[targetColumnIndex].id;
       targetIds = [...state.columnIds[toColumnId]];
       insertionIndex = targetIds.length;
     }
-
     try {
-      const targetIndex = getPositionIndex(targetIds, insertionIndex, state.tasksById);
-      moveTask(taskId, toColumnId, targetIndex).catch(() => {});
+      const previous = insertionIndex > 0 ? state.tasksById[targetIds[insertionIndex - 1]]?.orderIndex : null;
+      const next = insertionIndex < targetIds.length ? state.tasksById[targetIds[insertionIndex]]?.orderIndex : null;
+      moveTask(taskId, toColumnId, getIndexForPosition(previous, next)).catch(() => {});
     } catch (error) {
       toast.error(error.message || 'Could not calculate a safe task position.');
     }
   }
 
+  function moveToColumn(toColumnId) {
+    const state = useBoardStore.getState();
+    const destination = state.columnIds[toColumnId];
+    const previous = destination.length ? state.tasksById[destination[destination.length - 1]]?.orderIndex : null;
+    try {
+      moveTask(taskId, toColumnId, getIndexForPosition(previous, null)).catch(() => {});
+    } catch (error) {
+      toast.error(error.message || 'Could not calculate a safe task position.');
+    }
+  }
+
+  const issueKey = String(taskId).replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase().padStart(6, '0');
   return (
-    <article
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 ${isDragging ? 'ring-2 ring-indigo-500 dark:ring-indigo-300' : ''}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">
-          <button type="button" disabled={task._pending} onClick={() => onEdit(taskId)} className="rounded text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait dark:hover:text-indigo-300">{task.title}</button>
-        </h3>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${priorityClasses[task.priority]}`}>
-          {task.priority}
-        </span>
-      </div>
-      <button
-        ref={setActivatorNodeRef}
-        type="button"
-        {...attributes}
-        {...listeners}
-        aria-label={`Drag ${task.title}`}
-        className="mt-1 cursor-grab rounded px-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:cursor-grabbing dark:text-slate-300 dark:hover:bg-slate-700"
-      >
-        ⠿ Drag
-      </button>
-      {task.description && (
-        <p className="mt-2 truncate text-sm text-slate-600 dark:text-slate-300" title={task.description}>
-          {task.description}
-        </p>
-      )}
-      {task.tags?.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Task tags">
-          {task.tags.map((tag) => (
-            <li key={tag} className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-700 dark:text-slate-200">{tag}</li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-3" aria-label="Checklist completion">
-        <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
-          <span>Checklist</span>
-          <span>{completedCount}/{checklist.length} · {checklistPercent}%</span>
-        </div>
-        <div
-          role="progressbar"
-          aria-label={`Checklist progress for ${task.title}`}
-          aria-valuemin={0}
-          aria-valuemax={checklist.length || 1}
-          aria-valuenow={completedCount}
-          aria-valuetext={checklist.length ? `${completedCount} of ${checklist.length} complete, ${checklistPercent}%` : 'No checklist items, 0%'}
-          className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
-        >
-          <div
-            className="h-full rounded-full bg-indigo-600 transition-[width] duration-500 ease-out motion-reduce:transition-none dark:bg-indigo-400"
-            style={{ width: `${checklistPercent}%` }}
-          />
-        </div>
+    <article ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} tabIndex={0} aria-label={`${task.title}, ${task.priority} priority`}
+      className={`group min-w-0 rounded-card border border-border-subtle bg-card p-3 shadow-card transition-[border-color,background-color,box-shadow] duration-fast hover:border-border-strong hover:bg-card-hover hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${isDragging ? 'border-dashed opacity-40 shadow-none' : ''}`}>
+      <div className="flex items-start gap-2">
+        <button ref={setActivatorNodeRef} type="button" {...attributes} {...listeners} aria-label={`Drag ${task.title}`} disabled={task._pending}
+          className="mt-0.5 inline-flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted opacity-60 hover:bg-column hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus active:cursor-grabbing disabled:cursor-wait">
+          <GripVertical size={16} aria-hidden="true" />
+        </button>
+        <button type="button" disabled={task._pending} onClick={() => onEdit(taskId)} className="min-w-0 flex-1 break-words text-left text-body font-medium leading-5 text-primary line-clamp-2 hover:text-accent focus-visible:outline-none focus-visible:underline disabled:cursor-wait">{task.title}</button>
+        <details className="relative shrink-0">
+          <summary className="flex size-7 cursor-pointer list-none items-center justify-center rounded-button text-muted hover:bg-column focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" aria-label={`More actions for ${task.title}`}><MoreHorizontal size={17} aria-hidden="true" /></summary>
+          <div className="absolute right-0 top-8 z-10 min-w-44 rounded-card border border-border-subtle bg-elevated p-1 shadow-overlay">
+            <MenuAction icon={<Pencil size={14} />} onClick={() => onEdit(taskId)}>Edit</MenuAction>
+            <p className="px-2 pb-1 pt-2 text-meta font-semibold text-muted">Move to</p>
+            {COLUMNS.filter((column) => column.id !== task.columnId).map((column) => <MenuAction key={column.id} icon={<ArrowRight size={14} />} onClick={() => moveToColumn(column.id)}>{column.title}</MenuAction>)}
+            <div className="my-1 border-t border-border-subtle" />
+            <MenuAction icon={<ArrowUp size={14} />} disabled={isFirst} onClick={() => move('up')}>Move up</MenuAction>
+            <MenuAction icon={<ArrowDown size={14} />} disabled={isLast} onClick={() => move('down')}>Move down</MenuAction>
+            <MenuAction icon={<Trash2 size={14} />} danger onClick={() => onDelete(taskId)}>Delete</MenuAction>
+          </div>
+        </details>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
-        <button type="button" disabled={task._pending} onClick={() => onEdit(taskId)} aria-label={`Edit ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait dark:text-indigo-300 dark:hover:bg-slate-700">Edit</button>
-        <button type="button" disabled={task._pending} onClick={() => onDelete(taskId)} aria-label={`Delete ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-wait dark:text-rose-300 dark:hover:bg-slate-700">Delete</button>
-        <div className="ml-auto flex gap-1" role="group" aria-label="Temporary local move controls">
-          <button type="button" disabled={task._pending || columnIndex === 0} onClick={() => handleMove('left')} aria-label={`Move ${task.title} to previous column`} title="Previous column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed dark:border-slate-600 dark:hover:bg-slate-700">←</button>
-          <button type="button" disabled={task._pending || columnIndex === COLUMNS.length - 1} onClick={() => handleMove('right')} aria-label={`Move ${task.title} to next column`} title="Next column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed dark:border-slate-600 dark:hover:bg-slate-700">→</button>
-          <button type="button" disabled={task._pending || isFirst} onClick={() => handleMove('up')} aria-label={`Move ${task.title} up`} title="Move up" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed dark:border-slate-600 dark:hover:bg-slate-700">↑</button>
-          <button type="button" disabled={task._pending || isLast} onClick={() => handleMove('down')} aria-label={`Move ${task.title} down`} title="Move down" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed dark:border-slate-600 dark:hover:bg-slate-700">↓</button>
-        </div>
+      <div className="ml-8 mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+        <Badge variant={task.priority.toLowerCase()}><PriorityIcon size={12} className="mr-1" aria-hidden="true" />{task.priority}</Badge>
+        {(task.tags || []).slice(0, 2).map((tag) => <Badge key={tag} className="max-w-[45%] truncate">{tag}</Badge>)}
+        {(task.tags || []).length > 2 && <Badge aria-label={`${task.tags.length - 2} more tags`}>+{task.tags.length - 2}</Badge>}
       </div>
+      {task.description && <p className="ml-8 mt-2 min-w-0 break-words line-clamp-2 text-secondary text-muted">{task.description}</p>}
+
+      {checklist.length > 0 && <div className="ml-8 mt-3">
+        <div className="mb-1 flex items-center justify-between text-meta text-secondary"><span>Checklist</span><span>{completedCount}/{checklist.length} · {percent}%</span></div>
+        <div role="progressbar" aria-label={`Checklist progress for ${task.title}`} aria-valuemin={0} aria-valuemax={checklist.length} aria-valuenow={completedCount} aria-valuetext={`${completedCount} of ${checklist.length} complete, ${percent}%`} className="h-1.5 overflow-hidden rounded-full bg-column">
+          <div className={`h-full rounded-full transition-[width] duration-[300ms] ease-out motion-reduce:transition-none ${percent === 100 ? 'bg-success' : 'bg-accent'}`} style={{ width: `${percent}%` }} />
+        </div>
+      </div>}
+
+      <footer className="ml-8 mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
+        <span className="text-meta font-medium text-muted">TF-{issueKey}</span>
+        <div className="flex items-center gap-2"><span className="sr-only">Move controls</span>
+          <IconButton label={`Move ${task.title} up`} disabled={task._pending || isFirst} onClick={() => move('up')}><ArrowUp size={14} /></IconButton>
+          <IconButton label={`Move ${task.title} down`} disabled={task._pending || isLast} onClick={() => move('down')}><ArrowDown size={14} /></IconButton>
+          <Avatar label={`Unassigned: ${task.title}`} initials="—" />
+        </div>
+      </footer>
     </article>
   );
 });
+
+function MenuAction({ icon, children, danger = false, onClick, ...props }) {
+  return <button type="button" className={`flex min-h-8 w-full items-center gap-2 rounded px-2 text-left text-secondary hover:bg-column focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40 ${danger ? 'text-danger' : ''}`} onClick={(event) => { onClick?.(event); event.currentTarget.closest('details').open = false; }} {...props}>{icon}{children}</button>;
+}

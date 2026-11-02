@@ -18,6 +18,9 @@ import { ErrorState } from './ErrorState.jsx';
 import { Header } from './Header.jsx';
 import { LoadingSkeleton } from './LoadingSkeleton.jsx';
 import { TaskModal } from './TaskModal.jsx';
+import { Badge } from './ui/Badge.jsx';
+import { Button } from './ui/Button.jsx';
+import { Layers3 } from 'lucide-react';
 
 export function Board() {
   const fetchTasks = useBoardStore((state) => state.fetchTasks);
@@ -38,7 +41,7 @@ export function Board() {
   }, [fetchTasks]);
 
   const retry = useCallback(() => fetchTasks().catch(() => {}), [fetchTasks]);
-  const openCreate = useCallback(() => setTaskModal({ taskId: null }), []);
+  const openCreate = useCallback((columnId = 'todo') => setTaskModal({ taskId: null, columnId }), []);
   const openEdit = useCallback((taskId) => setTaskModal({ taskId }), []);
   const closeTaskModal = useCallback(() => setTaskModal(null), []);
   const closeDelete = useCallback(() => setDeleteTaskId(null), []);
@@ -93,12 +96,16 @@ export function Board() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-7xl bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8 dark:bg-slate-950 dark:text-slate-100">
+    <main className="mx-auto min-h-screen w-full max-w-7xl bg-app px-4 pb-10 text-primary sm:px-6 lg:px-8">
       <Header onCreateTask={openCreate} />
+      <section className="mb-5 flex flex-wrap items-end justify-between gap-3" aria-label="Board overview">
+        <div><p className="mb-1 text-meta font-semibold uppercase tracking-wide text-accent">Workspace / Product</p><h1 className="text-page font-semibold text-primary">Team board</h1><p className="mt-1 text-secondary">Plan, prioritize, and track work across the team.</p></div>
+        <Badge><Layers3 size={13} className="mr-1" aria-hidden="true" />{taskCount} {taskCount === 1 ? 'issue' : 'issues'}</Badge>
+      </section>
       {error && taskCount > 0 && (
-        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100">
+        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-danger bg-danger-subtle p-3 text-body text-danger">
           <span>{error}</span>
-          <button type="button" onClick={retry} className="font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">Retry</button>
+          <Button size="small" onClick={retry}>Retry</Button>
         </div>
       )}
 
@@ -114,16 +121,16 @@ export function Board() {
           onDragCancel={() => setActiveTaskId(null)}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3" aria-label="Task columns">
+          <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-board" aria-label="Task columns">
             {COLUMNS.map((column) => (
-              <Column key={column.id} column={column} onEditTask={openEdit} onDeleteTask={setDeleteTaskId} />
+              <Column key={column.id} column={column} onEditTask={openEdit} onDeleteTask={setDeleteTaskId} onCreateTask={openCreate} />
             ))}
           </div>
           <DragOverlay>{activeTask && <DragPreview task={activeTask} />}</DragOverlay>
         </DndContext>
       )}
 
-      {taskModal && <TaskModal key={taskModal.taskId || 'new-task'} taskId={taskModal.taskId} onClose={closeTaskModal} />}
+      {taskModal && <TaskModal key={taskModal.taskId || 'new-task'} taskId={taskModal.taskId} initialColumnId={taskModal.columnId} onClose={closeTaskModal} />}
       {deleteTaskId && <ConfirmDelete taskId={deleteTaskId} onClose={closeDelete} />}
     </main>
   );
@@ -131,9 +138,9 @@ export function Board() {
 
 function DragPreview({ task }) {
   return (
-    <article className="rotate-1 rounded-lg border border-indigo-300 bg-white p-4 shadow-xl dark:border-indigo-700 dark:bg-slate-800">
-      <div className="font-semibold text-slate-900 dark:text-white">{task.title}</div>
-      <div className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">{task.priority}</div>
+    <article className="rotate-[1deg] rounded-card border border-accent bg-card p-4 text-primary shadow-overlay">
+      <div className="font-semibold">{task.title}</div>
+      <div className="mt-2 text-meta font-medium text-secondary">{task.priority}</div>
     </article>
   );
 }

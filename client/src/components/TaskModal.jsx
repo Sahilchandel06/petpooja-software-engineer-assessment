@@ -2,26 +2,28 @@ import { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { COLUMNS, useBoardStore } from '../store/boardStore.js';
 import { useDialogFocus } from '../hooks/useDialogFocus.js';
+import { Input } from './ui/Input.jsx';
+import { Select } from './ui/Select.jsx';
 
-function initialForm(task) {
+function initialForm(task, initialColumnId) {
   return {
     title: task?.title || '',
     description: task?.description || '',
     priority: task?.priority || 'Medium',
-    columnId: task?.columnId || 'todo',
+    columnId: task?.columnId || initialColumnId || 'todo',
     tags: task?.tags?.join(', ') || '',
     subtasks: task?.subtasks?.map(({ _id, title, completed }) => ({ _id, title, completed })) || [],
   };
 }
 
-export function TaskModal({ taskId, onClose }) {
+export function TaskModal({ taskId, initialColumnId = 'todo', onClose }) {
   const task = useBoardStore((state) => (taskId ? state.tasksById[taskId] : null));
   const createTask = useBoardStore((state) => state.createTask);
   const updateTask = useBoardStore((state) => state.updateTask);
   const addSubtask = useBoardStore((state) => state.addSubtask);
   const updateSubtask = useBoardStore((state) => state.updateSubtask);
   const deleteSubtask = useBoardStore((state) => state.deleteSubtask);
-  const [form, setForm] = useState(() => initialForm(task));
+  const [form, setForm] = useState(() => initialForm(task, initialColumnId));
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const submitInProgress = useRef(false);
@@ -33,6 +35,7 @@ export function TaskModal({ taskId, onClose }) {
   const [subtaskError, setSubtaskError] = useState('');
   const dialogRef = useRef(null);
   const isEditing = Boolean(taskId);
+  const titleValidationError = formError === 'Enter a task title.' || formError.startsWith('Task titles') ? formError : '';
   const subtasks = isEditing ? task?.subtasks || [] : form.subtasks;
   useDialogFocus(dialogRef, onClose);
 
@@ -160,115 +163,70 @@ export function TaskModal({ taskId, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"
+      className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-primary/50 p-3 backdrop-blur-[2px] sm:p-6 animate-backdrop-in"
       onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     >
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="task-modal-title" className="my-auto w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="task-modal-title" className="my-auto w-full max-w-3xl overflow-hidden rounded-column border border-border-subtle bg-elevated text-primary shadow-overlay animate-modal-in">
+        <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4 sm:px-6">
           <div>
-            <h2 id="task-modal-title" className="text-xl font-bold text-slate-900 dark:text-white">{isEditing ? 'Edit task' : 'Create task'}</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Fields marked required must be filled in.</p>
+            <p className="text-meta font-semibold uppercase tracking-wide text-accent">{isEditing ? 'Edit issue' : 'New issue'}</p>
+            <h2 id="task-modal-title" className="mt-1 text-page font-semibold text-primary">{isEditing ? 'Update task' : 'Create task'}</h2>
+            <p className="mt-1 text-secondary text-muted">Fields marked required must be filled in.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close task form" className="rounded p-1 text-xl text-slate-500 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:bg-slate-800">×</button>
+          <button type="button" onClick={onClose} aria-label="Close task form" className="rounded-button p-1 text-xl text-muted hover:bg-column focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">×</button>
         </div>
 
         <form onSubmit={submit} noValidate>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="task-title" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Title <span aria-hidden="true">*</span></label>
-              <input id="task-title" name="title" value={form.title} onChange={changeField} maxLength={120} required autoFocus aria-invalid={Boolean(formError)} aria-describedby={formError ? 'task-form-error' : undefined} className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
-            </div>
+          <div className="grid max-h-[min(70vh,700px)] grid-cols-1 gap-6 overflow-y-auto p-5 sm:grid-cols-[minmax(0,1.4fr)_minmax(220px,.8fr)] sm:px-6">
+            <div className="space-y-4">
+            <Input id="task-title" label={<>Summary <span aria-hidden="true">*</span></>} name="title" value={form.title} onChange={changeField} maxLength={120} required autoFocus error={titleValidationError} placeholder="Write a concise issue title" />
 
             <div>
-              <label htmlFor="task-description" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Description</label>
-              <textarea id="task-description" name="description" value={form.description} onChange={changeField} rows="3" className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+              <label htmlFor="task-description" className="mb-1.5 block text-secondary font-medium">Description</label>
+              <textarea id="task-description" name="description" value={form.description} onChange={changeField} rows="4" placeholder="Add details, context, or acceptance criteria…" className="w-full rounded-button border border-border-strong bg-elevated px-3 py-2 text-body text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <fieldset className="rounded-card border border-border-subtle p-3" disabled={saving || subtaskPending}>
+              <legend className="px-1 text-secondary font-semibold">Checklist</legend>
+              <ul className="space-y-2">
+                {subtasks.map((subtask) => <li key={subtask._id} className="flex items-center gap-2">
+                  <input type="checkbox" checked={subtask.completed} onChange={() => toggleSubtask(subtask)} aria-label={`Mark ${subtask.title} ${subtask.completed ? 'incomplete' : 'complete'}`} className="size-4 accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
+                  <input type="text" value={subtaskDrafts[subtask._id] ?? subtask.title} onChange={(event) => setSubtaskDrafts((current) => ({ ...current, [subtask._id]: event.target.value }))} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); saveSubtaskTitle(subtask); } }} maxLength={120} aria-label={`Checklist item title: ${subtask.title}`} className="min-w-0 flex-1 rounded border border-border-strong bg-elevated px-2 py-1.5 text-secondary text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
+                  <button type="button" onClick={() => saveSubtaskTitle(subtask)} disabled={(subtaskDrafts[subtask._id] ?? subtask.title).trim() === subtask.title} aria-label={`Save checklist item title: ${subtask.title}`} className="text-secondary font-medium text-accent hover:underline disabled:opacity-40">Save</button>
+                  <button type="button" onClick={() => removeChecklistItem(subtask)} aria-label={`Delete checklist item: ${subtask.title}`} className="text-secondary font-medium text-danger hover:underline">Remove</button>
+                </li>)}
+              </ul>
+              {subtasks.length === 0 && <p className="my-2 text-secondary text-muted">No checklist items yet.</p>}
+              <div className="mt-3 flex gap-2"><label htmlFor="new-subtask-title" className="sr-only">New checklist item title</label><input id="new-subtask-title" value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addChecklistItem(); } }} maxLength={120} placeholder="Add a checklist item" className="min-w-0 flex-1 rounded-button border border-border-strong bg-elevated px-3 py-2 text-secondary text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" /><button type="button" onClick={addChecklistItem} disabled={!subtaskTitle.trim() || subtaskPending || saving} className="rounded-button border border-border-strong px-3 py-2 text-secondary font-semibold text-primary hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40">Add</button></div>
+              {subtaskError && <p className="mt-2 text-secondary font-medium text-danger" role="alert">{subtaskError}</p>}
+            </fieldset>
+            </div>
+
+            <aside className="space-y-4 rounded-card bg-column p-3 sm:bg-transparent sm:p-0">
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <label htmlFor="task-priority" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Priority</label>
-                <select id="task-priority" name="priority" value={form.priority} onChange={changeField} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                <Select id="task-priority" label="Priority" name="priority" value={form.priority} onChange={changeField}>
                   <option>Low</option><option>Medium</option><option>High</option>
-                </select>
+                </Select>
               </div>
               {!isEditing && (
                 <div>
-                  <label htmlFor="task-column" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Column</label>
-                  <select id="task-column" name="columnId" value={form.columnId} onChange={changeField} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                  <Select id="task-column" label="Status" name="columnId" value={form.columnId} onChange={changeField}>
                     {COLUMNS.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}
-                  </select>
+                  </Select>
                 </div>
               )}
+              {isEditing && <div><span className="mb-1.5 block text-secondary font-medium">Status</span><p className="rounded-button border border-border-subtle bg-card px-3 py-2 text-body text-secondary">{COLUMNS.find(({ id }) => id === task?.columnId)?.title || 'Unknown'}</p><p className="mt-1 text-meta text-muted">Move this issue from its card menu or drag it to another column.</p></div>}
             </div>
 
-            <div>
-              <label htmlFor="task-tags" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Tags <span className="font-normal text-slate-500 dark:text-slate-400">(comma-separated)</span></label>
-              <input id="task-tags" name="tags" value={form.tags} onChange={changeField} className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
-            </div>
-
-            <fieldset className="rounded-lg border border-slate-200 p-3 dark:border-slate-700" disabled={saving || subtaskPending}>
-              <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Checklist</legend>
-              <ul className="space-y-2">
-                {subtasks.map((subtask) => (
-                  <li key={subtask._id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={subtask.completed}
-                      onChange={() => toggleSubtask(subtask)}
-                      aria-label={`Mark ${subtask.title} ${subtask.completed ? 'incomplete' : 'complete'}`}
-                      className="h-4 w-4 rounded border-slate-400 text-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-600 dark:border-slate-500"
-                    />
-                    <input
-                      type="text"
-                      value={subtaskDrafts[subtask._id] ?? subtask.title}
-                      onChange={(event) => setSubtaskDrafts((current) => ({ ...current, [subtask._id]: event.target.value }))}
-                      onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); saveSubtaskTitle(subtask); } }}
-                      maxLength={120}
-                      aria-label={`Checklist item title: ${subtask.title}`}
-                      className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => saveSubtaskTitle(subtask)}
-                      disabled={(subtaskDrafts[subtask._id] ?? subtask.title).trim() === subtask.title}
-                      aria-label={`Save checklist item title: ${subtask.title}`}
-                      className="rounded px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 disabled:cursor-not-allowed dark:text-indigo-300 dark:hover:bg-slate-700"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeChecklistItem(subtask)}
-                      aria-label={`Delete checklist item: ${subtask.title}`}
-                      className="rounded px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 dark:text-rose-300 dark:hover:bg-slate-700"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {subtasks.length === 0 && <p className="my-2 text-sm text-slate-600 dark:text-slate-400">No checklist items yet.</p>}
-              <div className="mt-3 flex gap-2">
-                <label htmlFor="new-subtask-title" className="sr-only">New checklist item title</label>
-                <input
-                  id="new-subtask-title"
-                  value={subtaskTitle}
-                  onChange={(event) => setSubtaskTitle(event.target.value)}
-                  onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addChecklistItem(); } }}
-                  maxLength={120}
-                  placeholder="Add a checklist item"
-                  className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-400"
-                />
-                <button type="button" onClick={addChecklistItem} disabled={!subtaskTitle.trim() || subtaskPending || saving} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 disabled:cursor-not-allowed dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700">Add</button>
-              </div>
-              {subtaskError && <p className="mt-2 text-sm font-medium text-rose-700 dark:text-rose-300" role="alert">{subtaskError}</p>}
-            </fieldset>
+            <Input id="task-tags" label={<>Labels <span className="font-normal text-muted">(comma-separated)</span></>} name="tags" value={form.tags} onChange={changeField} placeholder="design, frontend" />
+            </aside>
           </div>
 
-          {formError && <p id="task-form-error" className="mt-4 text-sm font-medium text-rose-700 dark:text-rose-300" role="alert">{formError}</p>}
-          <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</button>
-            <button type="submit" disabled={saving || subtaskPending} className="rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait">{saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task'}</button>
+          {formError && !titleValidationError && <p id="task-form-error" className="px-6 pb-2 text-secondary font-medium text-danger" role="alert">{formError}</p>}
+          <div className="flex justify-end gap-2 border-t border-border-subtle bg-card px-5 py-4 sm:px-6">
+            <button type="button" onClick={onClose} className="min-h-9 rounded-button border border-border-strong px-3 text-body font-medium text-secondary hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">Cancel</button>
+            <button type="submit" disabled={saving || subtaskPending} className="min-h-9 rounded-button bg-accent px-3 text-body font-semibold text-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-50">{saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task'}</button>
           </div>
         </form>
       </section>

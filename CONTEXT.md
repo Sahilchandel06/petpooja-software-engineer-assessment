@@ -143,11 +143,11 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Step 10 verified the documented root test/lint/build commands: `npm test`, `npm run lint`, and `npm run build --prefix client` all pass. The API table was checked against `server/src/routes/taskRoutes.js`; the documented concurrency command matches the server script name.
 - Step 11 adds root `DECISIONS.md` with first-person answers to the four required assessment questions. Its AI retrospective uses only incidents already listed in this file's AI MISTAKES LOG; no new examples were invented.
 - `DECISIONS.md` describes the current implementation separately from proposals. The scale analysis identifies the unpaginated `GET /api/tasks` and full client render as the first performance bottleneck, then proposes per-column cursor pagination, indexed neighbor lookups, windowed rendering, and granular live events.
-- Step 11 verification passed: all four decision headings are present, the retrospective examples match the existing mistake log, `npm test` passes (7 server and 3 client tests), `npm run lint` passes, and the client production build passes.
+- Step 11 verification passed: all four decision headings are present, the retrospective examples match the existing mistake log, `npm test` passes (7 server and 4 client tests), `npm run lint` passes, and the client production build passes.
 - Step 12 audits R1–R21 against the assessment and source lines. It corrected the PDF transcript character encoding in `docs/REQUIREMENTS.md`, aligned R15/R17 statuses with completed deliverables, corrected the README tree rendering, and left R1 in progress because deployment is not configured.
 - Final compliance audit re-read the 3-page source PDF and compared it with the transcript in `docs/REQUIREMENTS.md`. The complete-mastery/live-walkthrough requirement is now explicit in R21, including the arbitrary hook, middleware, or controller path from client render to database write. No other substantive source requirement was missing from the transcript.
 - Final compliance audit re-inspected the implementation files and found no feature-level FAIL that warranted refactoring. It confirmed that only wildcard Option 3 (nested checklist/progress) exists. R1 remains in progress because no deployment is configured; R18-R20 and the candidate's live-defense ability remain unverified external requirements.
-- Final audit verification reran `npm test` (7 server + 3 client tests passed), `npm run lint` (server and client passed), and `npm run build --prefix client` (passed). The standalone concurrency script, browser/manual checks, deployment, Git history, remote branch/PR state, and secret history were not verified. The AI must not run Git commands.
+- Final audit verification reran `npm test` (7 server + 4 client tests passed), `npm run lint` (server and client passed), and `npm run build --prefix client` (passed). The standalone concurrency script, browser/manual checks, deployment, Git history, remote branch/PR state, and secret history were not verified. The AI must not run Git commands.
 
 ## AI MISTAKES LOG
 
@@ -158,6 +158,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - While wiring Step 8's rename-save callback, my first edit omitted the closing brace for its changes object. A source inspection caught the syntax error before verification; I corrected the object literal before the Step 8 verification run.
 - The first Step 9 API test setup used a suite hook whose startup overlapped requests while MongoDB Memory Server was still downloading. I changed setup to top-level await so API tests cannot start until the replica set and indexes are ready.
 - Client lint caught an unused caught-error binding in the delete dialog; I removed the binding while retaining the rollback's pending-state reset.
+- During the UI redesign, the first lint run caught an unused column-index variable left after replacing adjacent-column menu actions with direct destination actions; I removed the variable.
 - The optimistic create success path initially kept the temporary ID in the column order while deleting its task record. Sorting then read `orderIndex` from an undefined task after the server had already returned 201, so the UI showed a false failure although the task was saved. I remove the temporary ID before inserting the server task and added a client store regression test for create reconciliation.
 
 ## Known issues
@@ -245,7 +246,7 @@ Likely interview questions:
 
 ## Step 9 verification
 
-- `npm test` passed: 7 server tests and 3 client tests.
+- `npm test` passed: 7 server tests and 4 client tests.
 - `npm run lint` passed for server and client.
 - `npm run build --prefix client` passed.
 - Manual browser checks for keyboard focus restoration, mobile layout, empty/error/loading states, theme reload, and live optimistic rollback remain recommended before the final submission.
@@ -304,7 +305,7 @@ Likely interview questions:
 
 ## Step 12 verification
 
-- `npm test` passes with 7 server tests and 3 client tests.
+- `npm test` passes with 7 server tests and 4 client tests.
 - `npm run lint` passes for both server and client.
 - `npm run build --prefix client` passes.
 - `docs/REQUIREMENTS.md` transcript was checked against `pdftotext -layout docs/ASSESSMENT.pdf -`; the mojibake characters were corrected.
@@ -356,3 +357,22 @@ Run this cleanup only after the final PR is merged on GitHub.
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
 Next step: submission checklist (deployment and GitHub verification remain user actions; no more implementation step is planned).
+
+## UI redesign follow-up
+
+- Status: DONE for implementation; browser review and screenshot capture are still pending.
+- Active branch: `feature/project-setup` (the user's persistent single-branch preference overrides the temporary branch in the UI prompt).
+- Last updated: 2026-11-02.
+- Scope: presentation-only redesign of the board, columns, cards, task/delete dialogs, empty/loading/error states, toasts, and shared controls. Store, API, move queue, optimistic rollback, and the blocking theme initializer were preserved.
+- Approved additions: `lucide-react` for interface icons and `@fontsource-variable/inter` for a self-hosted font. No other package was added for this redesign.
+- Responsive behavior: one column per row below the large breakpoint; three equal-width columns from large screens, filling a centered `max-w-7xl` page container with balanced side margins. No horizontal board scroll wrapper or independently scrollable column body; the document itself scrolls vertically when the task list exceeds the viewport.
+- Component choices: shared Button, Badge, Avatar, Tooltip, IconButton, Input, and Select primitives live under `client/src/components/ui/`. TaskCard remains memoized and keeps per-task Zustand selectors. Its overflow menu exposes edit, delete, all destination columns, and vertical ordering actions; dedicated up/down buttons remain available.
+- New-task dialogs opened from a column preselect that column. Existing tasks show their current status in the edit dialog; moving remains an explicit board action so the edit request does not silently change status.
+- Design tokens: light app `#f4f5f7`, column `#ebecf0`, card `#ffffff`, primary text `#172b4d`, secondary `#44546f`, muted `#5e6c84`, accent `#0c66e4`; dark app `#101214`, column `#181b20`, card `#1d2125`, primary text `#dee4ea`, secondary `#b6c2cf`, muted `#9fadbc`, accent `#579dff`. Cards use 6px radius, columns 8px, controls 6px, badges 4px. Standard transitions are 140–160ms; checklist progress uses 300ms and respects reduced motion.
+- Contrast calculations (WCAG relative luminance, normal text): light primary/app 12.93:1; secondary/column 6.48:1; muted/card 5.31:1; accent/app 4.77:1; high badge text/background 5.77:1; medium badge 5.68:1; low badge 5.76:1; white text/primary button 5.20:1. Dark primary/app 14.65:1; secondary/column 9.54:1; muted/card 7.08:1; accent/app 6.86:1; high badge 5.39:1; medium badge 6.38:1; low badge 6.25:1; dark button text/accent button 6.86:1. These are static token calculations; browser rendering and every OS-level native control still need visual review.
+- README screenshot checklist now names light board, dark board, drag overlay, and task modal captures; no screenshots have been captured yet.
+- Verification after this follow-up: client and server lint passed, `npm test` passed (7 server and 4 client tests), and the client production build passed. Manual checks: 375px, 768px, and 1280px widths; light/dark reload; keyboard card menu and dialogs; drag overlay; simulated rollback; progress-bar states.
+- The assessment R1–R21 table above remains unchanged by this visual-only follow-up: the outstanding deployment/external workflow items remain in progress or unverified as previously recorded. A successful build is not a substitute for manual browser checks.
+- Known issue: screenshots and manual browser/accessibility review have not been completed in this environment. Do not describe the UI as visually verified until those checks are run.
+- User feedback led to a layout correction: removed the board minimum-width/scroll wrapper, fixed 280–360px column caps, and column `overflow-y-auto`. Columns now use equal flexible tracks and task lists use natural height; narrow screens stack the columns to avoid a horizontal scrollbar. After the correction, `npm run lint` and `npm run build --prefix client` both passed. Browser rendering at the target widths remains to be checked manually.
+- Next step: submission checklist (deployment and GitHub verification remain user actions).

@@ -8,9 +8,10 @@ export default function App() {
       <Toaster
         position="top-right"
         toastOptions={{
-          className: 'border border-slate-200 bg-white text-slate-900 shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100',
-          success: { iconTheme: { primary: '#047857', secondary: '#ffffff' } },
-          error: { iconTheme: { primary: '#be123c', secondary: '#ffffff' } },
+          className: 'border border-border-subtle bg-elevated text-primary shadow-overlay',
+          style: { background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' },
+          success: { iconTheme: { primary: '#216e4e', secondary: '#ffffff' } },
+          error: { iconTheme: { primary: '#ae2e24', secondary: '#ffffff' } },
         }}
       />
     </>

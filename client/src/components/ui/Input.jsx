@@ -1,0 +1,3 @@
+export function Input({ id, label, error, className = '', ...props }) {
+  return <div className="grid gap-1.5"><label htmlFor={id} className="text-body font-medium text-secondary">{label}</label><input id={id} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} className={`min-h-10 w-full rounded-button border border-border-strong bg-elevated px-3 text-body text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${className}`} {...props} />{error && <span id={`${id}-error`} className="text-secondary text-danger" role="alert">{error}</span>}</div>;
+}

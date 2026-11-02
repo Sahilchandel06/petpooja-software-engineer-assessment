@@ -1,15 +1,9 @@
+import { AlertCircle } from 'lucide-react';
+import { Button } from './ui/Button.jsx';
+
 export function ErrorState({ message, onRetry }) {
-  return (
-    <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-100" role="alert">
-      <h2 className="font-semibold">Could not load the board</h2>
-      <p className="mt-1 text-sm">{message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-4 rounded-md bg-red-800 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
-      >
-        Retry
-      </button>
-    </section>
-  );
+  return <section className="flex flex-wrap items-start justify-between gap-4 rounded-card border border-danger bg-danger-subtle p-5 text-danger" role="alert">
+    <div className="flex gap-3"><AlertCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" /><div><h2 className="font-semibold">Could not load the board</h2><p className="mt-1 text-secondary">{message}</p></div></div>
+    <Button variant="danger" size="small" onClick={onRetry}>Retry</Button>
+  </section>;
 }

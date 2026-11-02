@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useBoardStore } from '../store/boardStore.js';
 import { useDialogFocus } from '../hooks/useDialogFocus.js';
+import { Button } from './ui/Button.jsx';
 
 export function ConfirmDelete({ taskId, onClose }) {
   const task = useBoardStore((state) => state.tasksById[taskId]);
@@ -23,13 +24,13 @@ export function ConfirmDelete({ taskId, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={dialogRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-        <h2 id="delete-title" className="text-lg font-bold text-slate-900 dark:text-white">Delete this task?</h2>
-        <p id="delete-description" className="mt-2 text-sm text-slate-600 dark:text-slate-300">“{task?.title || taskTitle}” will be permanently removed.</p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</button>
-          <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-md bg-rose-700 px-4 py-2 font-semibold text-white hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-wait">{deleting ? 'Deleting…' : 'Delete task'}</button>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-primary/50 p-4 backdrop-blur-[2px]" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" className="w-full max-w-md rounded-column border border-border-subtle bg-elevated p-5 text-primary shadow-overlay">
+        <h2 id="delete-title" className="text-modal font-semibold">Delete this task?</h2>
+        <p id="delete-description" className="mt-2 text-body text-secondary">“{task?.title || taskTitle}” will be permanently removed.</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="danger" onClick={confirmDelete} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete task'}</Button>
         </div>
       </section>
     </div>

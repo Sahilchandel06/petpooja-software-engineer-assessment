@@ -210,9 +210,12 @@ Deploy the API first, then set the frontend's `VITE_API_URL` and the API's `CLIE
 
 ## Screenshots
 
-<!-- Replace this placeholder with a captured board image, for example docs/screenshots/taskflow-board.png. -->
+Capture and commit these screenshots after running the application; the paths are placeholders until the images are captured:
 
-_Screenshot placeholder: add a board screenshot here after capturing the running application._
+- [ ] Light board: `docs/screenshots/board-light.png`
+- [ ] Dark board: `docs/screenshots/board-dark.png`
+- [ ] Drag interaction with the overlay visible: `docs/screenshots/drag-overlay.png`
+- [ ] Task create/edit modal: `docs/screenshots/task-modal.png`
 
 ## Assessment documents
 
