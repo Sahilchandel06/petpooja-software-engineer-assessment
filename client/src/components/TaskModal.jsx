@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { COLUMNS, useBoardStore } from '../store/boardStore.js';
 
@@ -19,6 +19,7 @@ export function TaskModal({ taskId, onClose }) {
   const [form, setForm] = useState(() => initialForm(task));
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const submitInProgress = useRef(false);
   const isEditing = Boolean(taskId);
 
   useEffect(() => {
@@ -36,6 +37,8 @@ export function TaskModal({ taskId, onClose }) {
 
   async function submit(event) {
     event.preventDefault();
+    // React state updates after this event; the ref closes the same-tick double-click gap.
+    if (submitInProgress.current) return;
     const title = form.title.trim();
     if (!title) {
       setFormError('Enter a task title.');
@@ -53,6 +56,7 @@ export function TaskModal({ taskId, onClose }) {
       tags: form.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
     };
     setSaving(true);
+    submitInProgress.current = true;
     setFormError('');
     try {
       if (isEditing) {
@@ -67,6 +71,7 @@ export function TaskModal({ taskId, onClose }) {
       const message = error.response?.data?.error?.message || error.message || 'Could not save task.';
       setFormError(message);
     } finally {
+      submitInProgress.current = false;
       setSaving(false);
     }
   }

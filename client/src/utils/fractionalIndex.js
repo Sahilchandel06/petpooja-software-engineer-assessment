@@ -9,7 +9,10 @@ export function getIndexBetween(previousIndex, nextIndex) {
   assertFiniteIndex(previousIndex, 'previousIndex');
   assertFiniteIndex(nextIndex, 'nextIndex');
   if (previousIndex >= nextIndex) throw new RangeError('previousIndex must be smaller than nextIndex');
-  if (nextIndex - previousIndex <= INDEX_EPSILON) throw new RangeError('Index gap is too small; rebalance before inserting');
+  if (nextIndex - previousIndex <= INDEX_EPSILON) {
+    // The API rebalances this column transactionally after receiving the intended position.
+    return previousIndex + (nextIndex - previousIndex) / 2;
+  }
   return previousIndex + (nextIndex - previousIndex) / 2;
 }
 
