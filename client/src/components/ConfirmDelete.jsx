@@ -34,7 +34,7 @@ export function ConfirmDelete({ taskId, onClose }) {
         <p id="delete-description" className="mt-2 text-sm text-slate-600 dark:text-slate-300">“{task?.title || taskTitle}” will be permanently removed.</p>
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</button>
-          <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-md bg-rose-700 px-4 py-2 font-semibold text-white hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{deleting ? 'Deleting…' : 'Delete task'}</button>
+          <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-md bg-rose-700 px-4 py-2 font-semibold text-white hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-wait">{deleting ? 'Deleting…' : 'Delete task'}</button>
         </div>
       </section>
     </div>

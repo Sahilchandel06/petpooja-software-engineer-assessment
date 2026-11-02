@@ -87,7 +87,7 @@ export function TaskModal({ taskId, onClose }) {
             <h2 id="task-modal-title" className="text-xl font-bold text-slate-900 dark:text-white">{isEditing ? 'Edit task' : 'Create task'}</h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Fields marked required must be filled in.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close task form" className="rounded p-1 text-xl text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-slate-800">×</button>
+          <button type="button" onClick={onClose} aria-label="Close task form" className="rounded p-1 text-xl text-slate-500 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:bg-slate-800">×</button>
         </div>
 
         <form onSubmit={submit} noValidate>
@@ -120,7 +120,7 @@ export function TaskModal({ taskId, onClose }) {
             </div>
 
             <div>
-              <label htmlFor="task-tags" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Tags <span className="font-normal text-slate-500">(comma-separated)</span></label>
+              <label htmlFor="task-tags" className="mb-1 block text-sm font-medium text-slate-800 dark:text-slate-200">Tags <span className="font-normal text-slate-500 dark:text-slate-400">(comma-separated)</span></label>
               <input id="task-tags" name="tags" value={form.tags} onChange={changeField} className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
             </div>
           </div>
@@ -128,7 +128,7 @@ export function TaskModal({ taskId, onClose }) {
           {formError && <p id="task-form-error" className="mt-4 text-sm font-medium text-rose-700 dark:text-rose-300" role="alert">{formError}</p>}
           <div className="mt-6 flex justify-end gap-3">
             <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task'}</button>
+            <button type="submit" disabled={saving} className="rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait">{saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task'}</button>
           </div>
         </form>
       </section>
