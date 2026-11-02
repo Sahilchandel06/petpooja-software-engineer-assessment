@@ -35,6 +35,7 @@ app.use((error, _request, response, _next) => {
     error: {
       message: status === 500 ? 'Internal server error' : error.message,
       code,
+      ...(error.currentTask ? { currentTask: error.currentTask } : {}),
     },
   });
 });

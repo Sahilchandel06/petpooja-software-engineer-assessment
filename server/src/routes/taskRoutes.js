@@ -44,7 +44,7 @@ const moveTaskSchema = z.object({
   columnId: columnSchema,
   orderIndex: z.number().finite(),
   version: z.number().int().nonnegative(),
-  operationId: z.string().trim().min(1),
+  operationId: z.string().uuid(),
 }).strict();
 
 const router = Router();
@@ -54,7 +54,5 @@ router.post('/', simulateFailure, validateRequest(createTaskSchema), asyncHandle
 router.patch('/:id/move', simulateFailure, validateObjectId(), validateRequest(moveTaskSchema), asyncHandler(moveTask));
 router.patch('/:id', simulateFailure, validateObjectId(), validateRequest(updateTaskSchema), asyncHandler(updateTask));
 router.delete('/:id', simulateFailure, validateObjectId(), asyncHandler(deleteTask));
-
-// TODO(step 6): use version and operationId for conflict detection and idempotent retries.
 
 export default router;
