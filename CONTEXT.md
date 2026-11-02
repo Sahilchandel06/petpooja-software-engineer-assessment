@@ -46,11 +46,11 @@ E. Tell me the exact next step name and wait for my "go".
 | R3 | Done |
 | R4 | Done |
 | R5 | Done |
-| R6 | In progress |
-| R7 | Not started |
+| R6 | Done |
+| R7 | Done |
 | R8 | Not started |
 | R9 | Not started |
-| R10 | Not started |
+| R10 | In progress |
 | R11 | Not started |
 | R12 | Not started |
 | R13 | Not started |
@@ -72,7 +72,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 1 | project-setup | DONE |
 | 2 | server-task-api | DONE |
 | 3 | kanban-crud-ui | DONE |
-| 4 | drag-and-drop | TODO |
+| 4 | drag-and-drop | DONE |
 | 5 | optimistic-ui | TODO |
 | 6 | concurrency | TODO |
 | 7 | theme-support | TODO |
@@ -86,7 +86,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 
 - Use the fixed MERN stack and plain JavaScript as requested, even though the PDF permits alternatives and TypeScript.
 - Use Zustand for client state and zod for request validation, per the requested stack.
-- Use `@dnd-kit` packages for later card interaction; they are installed now but unused in the setup page.
+- Use `@dnd-kit` sensors and sortable contexts for card interaction; pointer drag requires 8px movement so clicks remain clicks, and keyboard dragging uses sortable coordinates.
 - Keep Express configuration in `src/app.js`; `src/server.js` loads environment values, connects MongoDB, then starts listening.
 - Put the Axios API base URL in `VITE_API_URL` and expose it through one shared client instance.
 - Use Tailwind CSS v3 with `darkMode: 'class'`. PostCSS and Autoprefixer are included as Tailwind build plumbing.
@@ -102,50 +102,59 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Normalize client tasks as `tasksById` plus ordered ID arrays for each column, so cards subscribe only to their own task record and columns subscribe only to their order list.
 - Keep one Axios API function per task endpoint and put all board state transitions in the Zustand store.
 - Step 3 adds responsive three-column rendering, task create/edit/delete dialogs, loading/empty/error states, and memoized cards.
-- The temporary arrow controls update only local Zustand state; `/move` and drag-and-drop persistence remain for later steps.
+- The step 3 arrow controls update local Zustand state; step 4 converts them to the same persisted `moveTask` action used by drag-and-drop.
+- Step 4 adds a droppable target for every column (including empty ones), an overlay preview, same-column/cross-column placement, and a client fractional-index helper.
+- `moveTask(taskId, toColumnId, targetIndex)` updates normalized state first, then PATCHes the move endpoint with the current version and generated operation ID.
+- The backend move controller performs one `findOneAndUpdate` with `$set` for column/order and `$inc` for version. Version conflict checks and operation-ID idempotency are reserved for step 6.
 
 ## AI MISTAKES LOG
 
 - The first client `package.json` draft accidentally gave the PostCSS dependency a leading space (`" postcss"`). Review caught the invalid package key; it was corrected to `"postcss"` before the successful dependency install and client build.
 - Starting root, client, and server npm installs concurrently during setup caused npm to record the parent project as a temporary server dependency. I removed that dependency, pruned its generated link, and removed the extraneous parent entry from `server/package-lock.json`.
+- The first DnD draft imported `useDroppable` from `@dnd-kit/sortable` instead of `@dnd-kit/core`; I corrected the import before the successful client build.
 
 ## Known issues
 
 - Server dependency installation reported 3 npm audit vulnerabilities (2 moderate, 1 high); review during tests-and-polish without applying unapproved version changes.
 - The seed command intentionally deletes every document from the Task collection before inserting its sample board. Do not run it against a database containing tasks that need to be kept.
 - Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The concurrency step must harden this write path.
-- Temporary card move controls in the client are local only and their changes are discarded on refresh; persistent ordering/moves are deferred to step 4 and the concurrency work.
+- Failed move requests currently leave the optimistic position in place until refresh; rollback is step 5.
+- The move endpoint accepts version and operation ID but does not enforce conflicts or idempotent retries yet; that is step 6.
+- Rapid moves can race or resolve out of order until the step 6 interaction guard is implemented.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
-- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/kanban-crud-ui` and was given the checkout command.
+- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/drag-and-drop` and was given the checkout command.
 
 ## Last updated, current branch, last commit
 
 - Last updated: 2026-11-02
-- Current branch: `feature/kanban-crud-ui` (requested branch; checkout not verified)
+- Current branch: `feature/drag-and-drop` (requested branch; checkout not verified)
 - Last commit: not inspected (Git commands are reserved for the user)
 
 ## Defend it
 
-The client mounts `Board`, which fetches `/tasks` through the Zustand `fetchTasks` action and normalized API layer. Each column selects its ordered task IDs; each memoized card selects only its own task and the stable local-move action. Create/edit forms and the delete confirmation call store actions, which await the API and then reconcile normalized state. The server validates requests and forwards async controller failures to the shared JSON error handler.
+Drag starts at the card's drag handle through the pointer or keyboard sensor. The pointer sensor waits for 8px of movement, so a plain click on the task title still opens its editor. `DndContext` tracks the active task and shows a `DragOverlay`. On drop, `Board.handleDragEnd` resolves the destination task or column (including an empty column), constructs the new ID ordering, and uses the client fractional-index helper to calculate a position from neighboring cards. It calls Zustand `moveTask`, which updates normalized state immediately and sends Axios `PATCH /api/tasks/:id/move` with `columnId`, `orderIndex`, `version`, and `operationId`. Express validates the path and body, then the async controller issues one `findOneAndUpdate` with `$set` and `$inc`; MongoDB returns the updated task, which the store reconciles.
 
-Trade-offs: normalized state avoids duplicating each task inside multiple column arrays, at the cost of looking up each card by ID. `React.memo` and narrow Zustand selectors limit unrelated card renders. The temporary arrow moves make ordering controls testable before drag-and-drop exists, but their state is local and disappears after a refresh. Theme switching and persistence remain deferred.
+Trade-offs: fractional positions avoid renumbering a whole column for ordinary moves, but tiny gaps need a rebalance path. This step is optimistic; failures do not roll back until step 5. The server accepts version and operation ID but enforcement is step 6. The arrow controls call the same action as drag-and-drop.
 
 Likely interview questions:
 
-1. **Why store tasks by ID and order separately?** The same task object has one canonical location in state, while column arrays describe ordering without copying task data.
-2. **How does memoization help?** Each `TaskCard` selects one task record and is wrapped in `React.memo`; changing a different task does not change its selector result or props.
-3. **Are the arrow moves persisted?** No. They exercise the local column/order state for this UI step; server move requests and drag-and-drop are planned for later steps.
-
+1. **Walk through a drag from start to database write.** The sensor activates; DndContext tracks the task/overlay; `onDragEnd` finds neighbors and computes a fractional index; Zustand updates locally and Axios sends the move; Express validates it and the controller performs the atomic MongoDB update.
+2. **How can an empty column accept a drop?** Each column registers its own droppable target even when its sortable list is empty. A drop on that target resolves to that column and appends the task.
+3. **What happens when two moves race?** This step sends version and operation ID fields, but does not enforce them. Conflict handling, idempotency, and the rapid-interaction guard arrive in step 6.
 ## How to verify
 
 - `npm run build --prefix client` (passed during this step).
 - Ensure `server/.env` points to a running MongoDB and `client/.env` has `VITE_API_URL=http://localhost:5000/api`, then run `npm run dev` from the repository root.
-- Open `http://localhost:5173`; confirm To Do, In Progress, and Done are visible. If using a disposable database, `npm run seed --prefix server` can populate sample cards; it deletes every existing Task document first.
-- Create a task, edit its title/priority/tags, and delete it. Confirm each change appears after the API response.
-- Use each arrow control and confirm the card moves locally. Refresh and confirm the temporary move is discarded.
-- With the API stopped, reload the page and confirm the error state and Retry control appear. Restart the API and retry.
-- Use keyboard Tab to reach controls, confirm visible focus, open either dialog, and close it with Escape.
+- Open `http://localhost:5173`. Test moving cards within a column, across columns, and into an empty column; confirm the arrow controls still move cards and survive a page refresh.
+- Test a short pointer click on a task title (it should open edit without dragging). Use the drag handle with pointer movement; also focus it with the keyboard and use Space/arrow keys/Space to move a card.
+- To test the move endpoint directly, get a task `_id` and `version` from `GET /api/tasks`, then set `$taskId` and `$version` and run:
+
+```powershell
+curl.exe -i -X PATCH "http://localhost:5000/api/tasks/$taskId/move" -H "Content-Type: application/json" -d ('{"columnId":"in-progress","orderIndex":1500,"version":' + $version + ',"operationId":"manual-move-001"}')
+```
+
+- Confirm the response is 200 with the updated `columnId`, `orderIndex`, and incremented `version`.
 ## GIT COMMANDS
 
 The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Checkout of the requested branch remains unverified.
@@ -159,42 +168,38 @@ git status
 Atomic commits:
 
 ```sh
-git add client/src/store/boardStore.js client/src/api/tasks.js
-git commit -m "feat: add normalized board store and task API"
+git add client/src/utils/fractionalIndex.js client/src/api/tasks.js client/src/store/boardStore.js
+git commit -m "feat: add fractional positions and persistent move action"
 
-git add client/src/App.jsx client/src/components/Board.jsx client/src/components/Column.jsx client/src/components/TaskCard.jsx client/src/components/Header.jsx
-git add -A client/src/components/HealthStatus.jsx
-git commit -m "feat: build responsive kanban board and task cards"
+git add client/src/components/Board.jsx client/src/components/Column.jsx client/src/components/TaskCard.jsx
+git commit -m "feat: enable sortable cross-column task moves"
 
-git add client/src/components/TaskModal.jsx client/src/components/ConfirmDelete.jsx
-git commit -m "feat: add task create edit and delete dialogs"
-
-git add client/src/components/EmptyState.jsx client/src/components/LoadingSkeleton.jsx client/src/components/ErrorState.jsx
-git commit -m "feat: add board loading empty and error states"
+git add server/src/controllers/taskController.js server/src/routes/taskRoutes.js
+git commit -m "feat: add atomic task move endpoint"
 
 git add CONTEXT.md
-git commit -m "docs: update context after kanban-crud-ui"
+git commit -m "docs: update context after drag-and-drop"
 ```
 
 Push:
 
 ```sh
-git push -u origin feature/kanban-crud-ui
+git push -u origin feature/drag-and-drop
 ```
 
 Pull Request:
 
-- Title: `feat: build TaskFlow Kanban CRUD interface`
-- Description: Add normalized Zustand state, task API functions, responsive board columns, task forms and delete confirmation, accessible states, and temporary local-only move controls.
+- Title: `feat: add task drag and drop with atomic move API`
+- Description: Add pointer and keyboard sorting, empty-column drop targets, fractional move positions, accessible button moves, and an atomic server move endpoint.
 - Open a PR into `main` and merge it on GitHub, not locally.
 
 Cleanup after the PR is merged:
 
 ```sh
-git checkout main && git pull origin main && git branch -d feature/kanban-crud-ui
+git checkout main && git pull origin main && git branch -d feature/drag-and-drop
 ```
 ## HOW TO RESUME
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `kanban-crud-ui`.
+Next step: `optimistic-ui`.
