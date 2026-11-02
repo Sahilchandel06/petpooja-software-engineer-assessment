@@ -56,8 +56,8 @@ E. Tell me the exact next step name and wait for my "go".
 | R10 | Done |
 | R11 | Done |
 | R12 | Done |
-| R13 | Not started |
-| R14 | Not started |
+| R13 | Done |
+| R14 | Done |
 | R15 | Not started |
 | R16 | Done |
 | R17 | In progress |
@@ -79,7 +79,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 5 | optimistic-ui | DONE |
 | 6 | concurrency | DONE |
 | 7 | theme-support | DONE |
-| 8 | wildcard-checklist | TODO |
+| 8 | wildcard-checklist | DONE |
 | 9 | tests-and-polish | TODO |
 | 10 | readme-docs | TODO |
 | 11 | decisions-md | TODO |
@@ -126,6 +126,11 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Keep the initial palette change instantaneous: no color transition is applied to the page on mount. React only hydrates after the root class already matches the saved/system theme.
 - Contrast was calculated using WCAG relative luminance for implemented text/background pairs. Light/dark ratios include body 17.06:1 / 18.41:1; muted text 4.76:1 minimum / 6.96:1 minimum; tags 9.45:1 / 8.40:1; priority badges Low 8.57:1 / 11.81:1, Medium 8.15:1 / 12.03:1, High 7.97:1 / 11.08:1. Other pairs and exact surfaces are recorded under Step 7 verification below.
 - Dark styles cover board, columns, cards, tags, priorities, forms, errors, drag preview, skeletons, and toast surfaces. Scrollbars and focus rings adapt to the root theme class.
+- Step 8 checklist writes use dedicated endpoints: add uses `$push`, toggle/rename uses `subtasks.$` with `$set`, and delete uses `$pull`. Each also uses `$inc: { version: 1 }`; general task PATCH no longer accepts a whole `subtasks` array, preventing accidental replacement writes.
+- Checklist edits bump the shared task version. This treats version as the revision for any task mutation, so a move based on an older task receives the existing 409 and reconciles current state. The trade-off is that a checklist-only change can conflict with an otherwise independent move; this favors explicit reconciliation over silent stale writes.
+- Client checklist changes update Zustand optimistically and snapshot the prior subtask array. Success reconciles the returned task/version; failure restores the checklist snapshot and shows the existing toast. New-task checklists remain local until optimistic task creation sends them in the create body.
+- Cards calculate completed/total and percentage from their subtask array. Progress bars expose min/max/now/text semantics, animate width changes, respect reduced-motion preferences, and report 0/0 as 0% without division by zero.
+- Seed data includes partial and complete checklists across the board for evaluating progress states.
 
 ## AI MISTAKES LOG
 
@@ -133,6 +138,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Starting root, client, and server npm installs concurrently during setup caused npm to record the parent project as a temporary server dependency. I removed that dependency, pruned its generated link, and removed the extraneous parent entry from `server/package-lock.json`.
 - The first DnD draft imported `useDroppable` from `@dnd-kit/sortable` instead of `@dnd-kit/core`; I corrected the import before the successful client build.
 - The first optimistic mutation draft left error toasts in both the store and its components; I moved failure toasts into the store so each rollback produces one toast.
+- While wiring Step 8's rename-save callback, my first edit omitted the closing brace for its changes object. A source inspection caught the syntax error before verification; I corrected the object literal. No build or runtime test has been run yet.
 
 ## Known issues
 
@@ -143,6 +149,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Versioned `/move` writes require a MongoDB replica set; local standalone MongoDB returns a documented 503 until configured as a replica set.
 - The new concurrency script and transaction/rebalance paths have not been executed against MongoDB. API/client build verification remains pending.
 - Step 7's visual reload checks in both themes and browser verification have not been run yet; contrast ratios are computed from the palette hex values and implemented classes.
+- Step 8 API/client rollback, progress-bar, and seed verification have not been run yet.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
 - Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
@@ -153,7 +160,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Branch workflow: continue on `feature/project-setup` for all remaining steps; push each step's commits there and open one PR to `main` when ready. The user confirmed this branch in their IDE/GitHub view.
 - Last commit: not inspected (Git commands are reserved for the user)
 
-## Defend it
+## Previous step defense: theme-support
 
 Step 7 theme flow: the browser parses `index.html` and synchronously reads `taskflow-theme`; when no valid value exists, it reads `prefers-color-scheme`. The inline script applies `dark` to `<html>` before CSS is painted and before Vite's React module runs. React mounts `Header` and `ThemeToggle`; `useTheme` initializes from that already-set root attribute. A button activation toggles the root class/data attribute, updates React state, and persists localStorage. The `storage` listener mirrors explicit theme changes from other tabs. No initial color transition is used, so reload starts directly in the selected palette.
 
@@ -168,16 +175,38 @@ Likely interview questions:
 3. **How did you check accessible contrast?** I calculated relative luminance ratios for the actual Tailwind palette pairs used for body, muted text, tags, errors, controls, and all priority badges in both themes; the smallest recorded text ratio is 4.70:1, above 4.5:1.
 
 Step 6 concurrency defense: five rapid drags update the board immediately while a FIFO queue sends writes serially. Each request reads the latest confirmed version; a same-UUID retry is idempotent, a stale version returns `currentTask`, and dependent queued operations for a failed task are dropped while independent cards continue. Transactions keep versioned moves, neighbor rebalancing, and operation records consistent. The script is present but has not been run against MongoDB.
+
+## Defend it
+
+Toggling a checklist item starts in `TaskModal.toggleSubtask`. The modal locks checklist controls for that request, then calls the Zustand `updateSubtask` action. The store snapshots the task, updates that subtask in the visible task immediately, and sends `PATCH /api/tasks/:id/subtasks/:subtaskId`. Zod validates the path IDs and allowed title/completed fields. The controller uses a positional `$set` and `$inc` on the task version, returning the updated task. The store reconciles the confirmed task/version. If the request fails, it restores the snapshot and reports the failure through the existing toast; the modal also displays an inline checklist error. The progress bar subscribes through the task card and recalculates from the updated checklist.
+
+Checklist changes increment `version` because it represents the task revision. A move carrying the earlier version then matches no task and returns 409 with `currentTask`; the client reconciles that task. Since checklist operations target only one subdocument and moves target only column/order fields, the database writes remain atomic and do not replace one another's fields. The deliberate trade-off is an occasional 409 for two logically independent edits.
+
+Likely interview questions:
+
+1. **Why use `$push`, positional `$set`, and `$pull`?** Each operator changes only the requested array item or appends/removes one item, so concurrent requests cannot overwrite a stale copy of the whole checklist.
+2. **Why does a checklist toggle increment the task version?** The version tracks all mutations to a task. A move from a stale snapshot receives a conflict and current server task rather than proceeding without noticing the checklist edit.
+3. **How does progress work for an empty checklist?** It shows `0/0 · 0%`; the bar value is zero with an accessible nonzero maximum, and the percentage calculation avoids dividing by zero.
 ## How to verify
 
 - Run `npm run build --prefix client`.
-- Start the app with `npm run dev` from the repository root.
-- **Light-mode reload:** set the OS preference to light, clear `taskflow-theme` from localStorage, and reload. Confirm the page appears light immediately; toggle dark, reload, and confirm it remains dark without a light flash.
-- **Dark-mode reload:** set localStorage `taskflow-theme` to `dark`, reload under a light OS preference, and confirm dark mode appears on the first frame. Toggle to light, reload, and confirm the saved light theme is immediate.
-- Confirm the accessible theme toggle label/pressed state updates, localStorage changes, and a second open tab follows storage events.
-- Inspect card body/description, all priority badges, tags, modal inputs, toasts, drag overlay, empty/error states, loading skeletons, scrollbars, and keyboard focus in both themes.
-- Confirm text/badge pair ratios recorded above stay above 4.5:1. The contrast check used these exact Tailwind color values: primary/body, muted, tags, badges, buttons, modal/toast, and error states. Decorative borders/focus indicators are not text pairs.
-- Existing Step 5 and Step 6 manual checks remain applicable; Step 6 database script was not run.
+- Start the app with `npm run dev` from the repository root and connect to the configured MongoDB database.
+- Run `npm run seed --prefix server` only against a disposable database because it deletes all tasks before inserting sample data. Confirm seeded cards include partial and complete checklists.
+- Open an existing task's modal. Add a checklist item, toggle it, rename it using Enter or Save, then remove it. Confirm each edit appears immediately, persists after reopening/refreshing, and the progress label/bar updates.
+- Turn on the simulated-failure switch and repeat add, toggle, rename, and delete. Confirm each optimistic change rolls back, the task's other checklist items remain, and an error toast appears.
+- Create a new task with checklist items, toggle/rename/remove items before submission, save it, and confirm the checklist persists.
+- Confirm a card with no checklist shows `0/0 · 0%` and exposes valid progressbar `aria-valuemin`, `aria-valuemax`, `aria-valuenow`, and `aria-valuetext`; toggle an item and confirm the bar animates. Emulate reduced motion and confirm the width transition is disabled.
+- Endpoint checks (replace IDs with real values):
+
+```sh
+curl.exe -X POST http://localhost:5000/api/tasks/TASK_ID/subtasks -H "Content-Type: application/json" -d "{\"title\":\"Review checklist\"}"
+curl.exe -X PATCH http://localhost:5000/api/tasks/TASK_ID/subtasks/SUBTASK_ID -H "Content-Type: application/json" -d "{\"completed\":true}"
+curl.exe -X PATCH http://localhost:5000/api/tasks/TASK_ID/subtasks/SUBTASK_ID -H "Content-Type: application/json" -d "{\"title\":\"Review final checklist\"}"
+curl.exe -X DELETE http://localhost:5000/api/tasks/TASK_ID/subtasks/SUBTASK_ID
+```
+
+- Confirm POST returns 201, PATCH/DELETE return 200, malformed IDs/bodies return 400, missing task/subtask IDs return 404, and each successful checklist edit increments task `version`.
+- Previous Step 5/6 and Step 7 manual checks still apply; their integration and browser checks remain unverified.
 
 ## GIT COMMANDS
 
@@ -192,17 +221,20 @@ git status
 Atomic commits:
 
 ```sh
-git add client/index.html
-git commit -m "feat: prevent theme flash before app load"
+git add server/src/controllers/taskController.js server/src/routes/taskRoutes.js
+git commit -m "feat: add atomic checklist endpoints"
 
-git add client/src/hooks/useTheme.js client/src/components/ThemeToggle.jsx client/src/components/Header.jsx
-git commit -m "feat: add persisted theme toggle"
+git add client/src/api/tasks.js client/src/store/boardStore.js client/src/components/TaskModal.jsx
+git commit -m "feat: add optimistic checklist editing"
 
-git add client/src/index.css client/src/App.jsx client/src/components/Board.jsx client/src/components/EmptyState.jsx
-git commit -m "style: complete accessible light and dark palettes"
+git add client/src/components/TaskCard.jsx
+git commit -m "feat: show animated checklist progress"
+
+git add server/src/scripts/seed.js
+git commit -m "chore: seed partial and complete checklists"
 
 git add CONTEXT.md
-git commit -m "docs: update context after theme-support"
+git commit -m "docs: update context after wildcard-checklist"
 ```
 
 Push:
@@ -229,4 +261,4 @@ Run this cleanup only after the final PR is merged on GitHub.
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `wildcard-checklist`.
+Next step: `tests-and-polish`.
