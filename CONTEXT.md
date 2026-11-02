@@ -44,8 +44,8 @@ E. Tell me the exact next step name and wait for my "go".
 
 | ID | Status |
 |---|---|
-| R1 | In progress |
-| R2 | In progress |
+| R1 | Done |
+| R2 | Done |
 | R3 | Done |
 | R4 | Done |
 | R5 | Done |
@@ -63,8 +63,8 @@ E. Tell me the exact next step name and wait for my "go".
 | R17 | In progress |
 | R18 | In progress |
 | R19 | In progress |
-| R20 | Not started |
-| R21 | Not started |
+| R20 | In progress |
+| R21 | In progress |
 
 Status meanings: Not started / In progress / Done / Verified. Use “Done” for implemented and documented; “Verified” only after the stated verification has actually been performed.
 
@@ -80,7 +80,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 6 | concurrency | DONE |
 | 7 | theme-support | DONE |
 | 8 | wildcard-checklist | DONE |
-| 9 | tests-and-polish | TODO |
+| 9 | tests-and-polish | DONE |
 | 10 | readme-docs | TODO |
 | 11 | decisions-md | TODO |
 | 12 | final-audit | TODO |
@@ -131,6 +131,12 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Client checklist changes update Zustand optimistically and snapshot the prior subtask array. Success reconciles the returned task/version; failure restores the checklist snapshot and shows the existing toast. New-task checklists remain local until optimistic task creation sends them in the create body.
 - Cards calculate completed/total and percentage from their subtask array. Progress bars expose min/max/now/text semantics, animate width changes, respect reduced-motion preferences, and report 0/0 as 0% without division by zero.
 - Seed data includes partial and complete checklists across the board for evaluating progress states.
+- Step 9 adds `node:test` + Supertest + MongoDB Memory Server replica-set integration coverage on the server, plus Vitest store tests on the client. A replica set is needed to exercise transactional move behavior.
+- Step 9 adds ESLint flat configs and scripts for both app roots, root `npm test`, `npm run lint`, and the assessment-required root `npm run seed` forwarding script.
+- Step 9 adds a reusable focus-management hook to trap Tab navigation inside dialogs, close with Escape, and return focus to the opener.
+- Server test binaries use `server/test/.mongodb-binaries` so the test runner does not need to write outside the repository workspace.
+- Step 9 verifies 7 server tests and 3 client store tests; root `npm test` passes. Both ESLint scripts and the client production build pass. Tests cover fractional indexes, CRUD/status validation, stale move conflicts, idempotent replay, five simultaneous moves, atomic checklist edits, optimistic move, rollback, and FIFO ordering.
+- Step 9 audit fixed the missing root `npm run seed` forwarding script, added root `test`/`lint` scripts, removed the accidental client file dependency, added dialog keyboard focus management, and removed production `console.log` calls. No console.log calls remain under client/server source or scripts.
 
 ## AI MISTAKES LOG
 
@@ -138,18 +144,20 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Starting root, client, and server npm installs concurrently during setup caused npm to record the parent project as a temporary server dependency. I removed that dependency, pruned its generated link, and removed the extraneous parent entry from `server/package-lock.json`.
 - The first DnD draft imported `useDroppable` from `@dnd-kit/sortable` instead of `@dnd-kit/core`; I corrected the import before the successful client build.
 - The first optimistic mutation draft left error toasts in both the store and its components; I moved failure toasts into the store so each rollback produces one toast.
-- While wiring Step 8's rename-save callback, my first edit omitted the closing brace for its changes object. A source inspection caught the syntax error before verification; I corrected the object literal. No build or runtime test has been run yet.
+- While wiring Step 8's rename-save callback, my first edit omitted the closing brace for its changes object. A source inspection caught the syntax error before verification; I corrected the object literal before the Step 8 verification run.
+- The first Step 9 API test setup used a suite hook whose startup overlapped requests while MongoDB Memory Server was still downloading. I changed setup to top-level await so API tests cannot start until the replica set and indexes are ready.
+- Client lint caught an unused caught-error binding in the delete dialog; I removed the binding while retaining the rollback's pending-state reset.
 
 ## Known issues
 
-- Server dependency installation reported 3 npm audit vulnerabilities (2 moderate, 1 high); review during tests-and-polish without applying unapproved version changes.
+- Server dependency installation reported 7 npm audit vulnerabilities (6 moderate, 1 high); client install reported 9 (7 moderate, 2 critical). Do not auto-upgrade dependencies; review during final audit.
 - The seed command intentionally deletes every document from the Task collection before inserting its sample board. Do not run it against a database containing tasks that need to be kept.
-- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. This is outside Step 6's move-write scope and remains for tests-and-polish review.
+- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The assessment's rapid-move requirement is covered, but create ordering under concurrent POSTs remains for final-audit review.
 - Move rollback/conflict handling now covers queued moves; overlapping edit/delete requests against the same task are not serialized by the move queue.
 - Versioned `/move` writes require a MongoDB replica set; local standalone MongoDB returns a documented 503 until configured as a replica set.
-- The new concurrency script and transaction/rebalance paths have not been executed against MongoDB. API/client build verification remains pending.
+- The standalone `server/scripts/concurrencyTest.js` was not separately run; the Step 9 integration suite exercised five concurrent moves against a replica-set MongoDB Memory Server.
 - Step 7's visual reload checks in both themes and browser verification have not been run yet; contrast ratios are computed from the palette hex values and implemented classes.
-- Step 8 API/client rollback, progress-bar, and seed verification have not been run yet.
+- Step 8 atomic checklist API behavior is covered by the passing integration suite. Client checklist rollback/progress UI and seed contents still need manual verification.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
 - Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
@@ -208,6 +216,26 @@ curl.exe -X DELETE http://localhost:5000/api/tasks/TASK_ID/subtasks/SUBTASK_ID
 - Confirm POST returns 201, PATCH/DELETE return 200, malformed IDs/bodies return 400, missing task/subtask IDs return 404, and each successful checklist edit increments task `version`.
 - Previous Step 5/6 and Step 7 manual checks still apply; their integration and browser checks remain unverified.
 
+## Step 9 defense
+
+Store test flow: a test calls `moveTask`, which synchronously changes normalized Zustand state, then enqueues the network write. A success resolves the mocked API and leaves the moved task in its new column; a failure restores the task and both affected column ID lists and calls the toast error handler. The queue test enqueues three asynchronous requests and checks that each starts only after the previous request settles. Server integration tests start a single-node replica set, connect Mongoose, build indexes, and exercise HTTP handlers through Supertest.
+
+Trade-offs: `node:test` avoids a separate server test runner, while Supertest exercises actual Express middleware/controller behavior. MongoDB Memory Server gives realistic transaction and index behavior but requires a large test-only MongoDB binary download. Vitest runs store tests without a browser DOM because these are state transition tests; it does not replace manual accessibility or responsive-layout review. The focus hook centralizes dialog keyboard behavior but uses a focused selector list rather than a full accessibility library.
+
+Likely interview questions:
+
+1. **Why run server integration tests on a replica set?** The move path uses transactions for idempotency, version checks, and rebalancing. A standalone MongoDB cannot test those transaction semantics.
+2. **What does the client rollback restore?** It restores the moved task record plus the previous ordered ID lists for its source and destination columns, so the card returns to its original position without refetching the whole board.
+3. **How does the modal support keyboard users?** On open, focus enters the dialog; Tab and Shift+Tab loop within it, Escape calls the close handler, and unmount restores focus to the element that opened it.
+
+## Step 9 verification
+
+- `npm test` passed: 7 server tests and 3 client tests.
+- `npm run lint` passed for server and client.
+- `npm run build --prefix client` passed.
+- Manual browser checks for keyboard focus restoration, mobile layout, empty/error/loading states, theme reload, and live optimistic rollback remain recommended before the final submission.
+- `npm run seed` is destructive to the configured Task collection; only run it against a disposable database.
+
 ## GIT COMMANDS
 
 The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Continue on the existing `feature/project-setup` branch for every remaining step, push that branch, and open a PR to `main` when the assessment is ready.
@@ -221,20 +249,23 @@ git status
 Atomic commits:
 
 ```sh
-git add server/src/controllers/taskController.js server/src/routes/taskRoutes.js
-git commit -m "feat: add atomic checklist endpoints"
+git add server/test server/eslint.config.js server/package.json server/package-lock.json
+git commit -m "test: cover task api and concurrent writes"
 
-git add client/src/api/tasks.js client/src/store/boardStore.js client/src/components/TaskModal.jsx
-git commit -m "feat: add optimistic checklist editing"
+git add client/src/store/boardStore.test.js client/package.json client/package-lock.json
+git commit -m "test: cover optimistic store and queue behavior"
 
-git add client/src/components/TaskCard.jsx
-git commit -m "feat: show animated checklist progress"
+git add client/eslint.config.js client/src/hooks/useDialogFocus.js client/src/components/TaskModal.jsx client/src/components/ConfirmDelete.jsx
+git commit -m "chore: lint client and improve dialog keyboard support"
 
-git add server/src/scripts/seed.js
-git commit -m "chore: seed partial and complete checklists"
+git add package.json package-lock.json .gitignore server/src/server.js server/src/scripts/seed.js server/scripts/concurrencyTest.js
+git commit -m "chore: add root verification and seed scripts"
+
+git add docs/REQUIREMENTS.md
+git commit -m "docs: update assessment requirement status"
 
 git add CONTEXT.md
-git commit -m "docs: update context after wildcard-checklist"
+git commit -m "docs: update context after tests-and-polish"
 ```
 
 Push:
@@ -261,4 +292,4 @@ Run this cleanup only after the final PR is merged on GitHub.
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `tests-and-polish`.
+Next step: `readme-docs`.
