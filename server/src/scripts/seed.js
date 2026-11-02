@@ -4,14 +4,14 @@ import Task from '../models/Task.js';
 
 const sampleTasks = [
   { title: 'Map customer onboarding flow', description: 'Document each step from signup through the first successful order.', priority: 'High', columnId: 'todo', tags: ['research', 'onboarding'], subtasks: [{ title: 'Interview two restaurant owners', completed: true }, { title: 'Draft the flow diagram', completed: false }] },
-  { title: 'Collect menu import examples', description: 'Gather spreadsheets with common menu formats and edge cases.', priority: 'Medium', columnId: 'todo', tags: ['data', 'menus'] },
+  { title: 'Collect menu import examples', description: 'Gather spreadsheets with common menu formats and edge cases.', priority: 'Medium', columnId: 'todo', tags: ['data', 'menus'], subtasks: [{ title: 'Collect CSV examples', completed: true }, { title: 'Record edge cases', completed: false }] },
   { title: 'Write API error copy', description: 'Prepare clear, actionable messages for common setup failures.', priority: 'Low', columnId: 'todo', tags: ['content'] },
   { title: 'Review accessibility checklist', description: 'Check keyboard flow and readable labels for the first release.', priority: 'High', columnId: 'todo', tags: ['accessibility', 'quality'], subtasks: [{ title: 'Check keyboard navigation', completed: true }, { title: 'Review form labels', completed: true }] },
   { title: 'Confirm pilot restaurant list', description: 'Coordinate with the field team on the first pilot group.', priority: 'Medium', columnId: 'todo', tags: ['launch', 'operations'] },
 
   { title: 'Build menu import preview', description: 'Show parsed item names and prices before confirming an import.', priority: 'High', columnId: 'in-progress', tags: ['menus', 'frontend'], subtasks: [{ title: 'Parse CSV rows', completed: true }, { title: 'Show validation warnings', completed: false }, { title: 'Add confirmation action', completed: false }] },
   { title: 'Add order status timeline', description: 'Display preparation and pickup updates in chronological order.', priority: 'Medium', columnId: 'in-progress', tags: ['orders', 'frontend'] },
-  { title: 'Tune database indexes', description: 'Measure the main dashboard query and add indexes where needed.', priority: 'High', columnId: 'in-progress', tags: ['performance', 'database'] },
+  { title: 'Tune database indexes', description: 'Measure the main dashboard query and add indexes where needed.', priority: 'High', columnId: 'in-progress', tags: ['performance', 'database'], subtasks: [{ title: 'Capture baseline query plan', completed: true }, { title: 'Add compound index', completed: false }, { title: 'Compare query time', completed: false }] },
   { title: 'Prepare pilot support guide', description: 'Write setup steps and escalation contacts for the launch team.', priority: 'Low', columnId: 'in-progress', tags: ['documentation', 'launch'], subtasks: [{ title: 'List common questions', completed: true }, { title: 'Add escalation contacts', completed: true }, { title: 'Review with support lead', completed: true }] },
   { title: 'Test printer reconnect flow', description: 'Verify that a disconnected kitchen printer can be restored.', priority: 'Medium', columnId: 'in-progress', tags: ['hardware', 'quality'] },
 
