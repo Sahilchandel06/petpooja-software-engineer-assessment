@@ -2,7 +2,7 @@
 
 ## Project summary and stack
 
-Build the TaskFlow resilient Kanban assessment from `docs/ASSESSMENT.pdf`, the single source of truth. Work is bootstrap-only so far. Keep `client/` and `server/` as separate application roots in this repository.
+Build the TaskFlow resilient Kanban assessment from `docs/ASSESSMENT.pdf`, the single source of truth. Step 1 establishes runnable client and server skeletons. Keep `client/` and `server/` as separate application roots in this repository.
 
 - Client: React, Vite, Tailwind CSS, Zustand, `@dnd-kit`, `react-hot-toast`, axios; plain JavaScript.
 - Server: Node.js, Express, Mongoose with MongoDB, zod validation; plain JavaScript.
@@ -41,8 +41,8 @@ E. Tell me the exact next step name and wait for my "go".
 
 | ID | Status |
 |---|---|
-| R1 | Not started |
-| R2 | Not started |
+| R1 | In progress |
+| R2 | In progress |
 | R3 | Not started |
 | R4 | Not started |
 | R5 | Not started |
@@ -57,7 +57,7 @@ E. Tell me the exact next step name and wait for my "go".
 | R14 | Not started |
 | R15 | Not started |
 | R16 | Not started |
-| R17 | Not started |
+| R17 | In progress |
 | R18 | Not started |
 | R19 | Not started |
 | R20 | Not started |
@@ -86,46 +86,57 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 
 - Use the fixed MERN stack and plain JavaScript as requested, even though the PDF permits alternatives and TypeScript.
 - Use Zustand for client state and zod for request validation, per the requested stack.
-- Use `@dnd-kit` for card interaction and MongoDB/Mongoose persistence; concurrency details remain to be designed in the relevant step.
+- Use `@dnd-kit` packages for later card interaction; they are installed now but unused in the setup page.
+- Keep Express configuration in `src/app.js`; `src/server.js` loads environment values, connects MongoDB, then starts listening.
+- Put the Axios API base URL in `VITE_API_URL` and expose it through one shared client instance.
+- Use Tailwind CSS v3 with `darkMode: 'class'`. PostCSS and Autoprefixer are included as Tailwind build plumbing.
+- Use root `concurrently` to run both development servers together.
 - Implement only wildcard Option 3: nested checklist and animated completion progress.
-- Only project directories and bootstrap documents have been added; application code and packages remain for later steps.
+- Step 1 adds the Node/Express and Vite/React skeletons, lockfiles, a health route, and a client health check. Task features remain for their later steps.
 
 ## AI MISTAKES LOG
 
-No AI mistakes have occurred in this work so far.
+- The first client `package.json` draft accidentally gave the PostCSS dependency a leading space (`" postcss"`). Review caught the invalid package key; it was corrected to `"postcss"` before the successful dependency install and client build.
 
 ## Known issues
 
-- No runtime project exists yet; only the `client/` and `server/` roots are present.
-- No verification has been run because there is no application code yet.
-- Public remote/repository configuration has not been inspected; no Git commands were run.
+- Server dependency installation reported 3 npm audit vulnerabilities (2 moderate, 1 high); review during tests-and-polish without applying unapproved version changes.
+- The seed behavior is intentionally a placeholder; realistic sample data is deferred.
+- `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
+- No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
+- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/project-setup` and was given the checkout command.
 
 ## Last updated, current branch, last commit
 
 - Last updated: 2026-11-02
-- Current branch: `main` (read from `.git/HEAD`; no Git command run)
+- Current branch: `feature/project-setup` (requested branch; checkout not verified)
 - Last commit: not inspected (Git commands are reserved for the user)
 
 ## Defend it
 
-This step establishes repository structure and a traceable transcription/checklist. There is no runtime call stack yet. Keeping implementation out of this step preserves the requested bootstrap-only scope. The checklist treats an item as implementation progress, so recording a requirement here does not mark it complete.
+The client renders `App`, mounts `HealthStatus`, and calls the shared Axios instance at `GET {VITE_API_URL}/health`. The server loads dotenv, connects Mongoose, and only then listens. Express applies Helmet, CORS, JSON parsing, and Morgan before the health route; unmatched requests pass through the 404 middleware to the central JSON error handler. No Kanban feature logic exists yet.
+
+Trade-offs: startup fails fast when MongoDB is unavailable instead of serving a misleading healthy API. Theme switching and persistence are deferred. The seed script is deliberately a placeholder. Root `concurrently` keeps both development processes easy to start together.
 
 Likely interview questions:
 
-1. **Why separate client and server?** They have different runtimes, dependencies, and responsibilities, so the boundary makes each side easier to run and explain.
-2. **Why keep the PDF transcript and checklist?** The transcript preserves the source details while the IDs make implementation and final review traceable.
-3. **Why are requirements still Not started?** Documentation does not implement or verify the application behavior; statuses should reflect actual work.
+1. **Why separate `app.js` from `server.js`?** Express configuration belongs in the app module; database connection and listening belong to process startup. This separation makes the HTTP app easier to inspect and reuse.
+2. **Why connect to MongoDB before listening?** The API should not advertise availability when its persistence layer is unreachable, so startup fails visibly.
+3. **How does the browser reach the API?** The page calls a shared Axios client whose base URL comes from `VITE_API_URL`; CORS allows the configured client origin.
 
 ## How to verify
 
 - Confirm `docs/REQUIREMENTS.md` includes the three-page transcript and requirements R1–R21.
-- Confirm `CONTEXT.md` lists the exact fixed stack, AI rules, step-end protocol, and 12-step plan.
-- Confirm `.gitignore` contains the requested common generated and local files.
-- No runtime checks apply; no application code or dependencies exist yet.
+- `npm run build --prefix client` (passed during this step).
+- Copy templates: `Copy-Item server/.env.example server/.env` and `Copy-Item client/.env.example client/.env`; adjust values if needed.
+- Start both apps with `npm run dev`.
+- Confirm `http://localhost:5173` reports `API status: ok`.
+- Confirm `http://localhost:5000/api/health` returns `{"status":"ok"}` and an unknown `/api/...` path returns 404 JSON with `{ "error": { "message": "...", "code": "..." } }`.
+- MongoDB must be running and reachable at `MONGO_URI` for server startup.
 
 ## GIT COMMANDS
 
-The assessment requires feature-branch work merged through a Pull Request and warns that direct unbranched commits can disqualify the submission. The requested initial commit on `main` conflicts with that rule, so use the feature branch workflow below. These are commands for the user; no Git command has been run by the AI.
+The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI.
 
 Verification:
 
@@ -136,9 +147,12 @@ git status
 Atomic commits:
 
 ```sh
-git switch -c feature/project-setup
-git add .gitignore docs/REQUIREMENTS.md
-git commit -m "docs: add assessment requirements and ignore rules"
+git add server/package.json server/package-lock.json server/src
+git commit -m "chore: scaffold Express server"
+git add client/package.json client/package-lock.json client/index.html client/vite.config.js client/tailwind.config.js client/postcss.config.js client/src
+git commit -m "chore: scaffold Vite client"
+git add package.json package-lock.json server/.env.example client/.env.example
+git commit -m "chore: add root dev runner and environment examples"
 git add CONTEXT.md
 git commit -m "docs: update context after project-setup"
 ```
@@ -151,8 +165,8 @@ git push -u origin feature/project-setup
 
 Pull Request:
 
-- Title: `docs: bootstrap TaskFlow assessment context`
-- Description: Add a faithful assessment transcript, requirement checklist, project context, and baseline ignore rules.
+- Title: `chore: bootstrap TaskFlow client and server`
+- Description: Add the Express/Mongoose and Vite/React skeletons, client health check, environment examples, and root development runner.
 - Open a PR into `main` and merge it on GitHub, not locally.
 
 Cleanup after the PR is merged:
