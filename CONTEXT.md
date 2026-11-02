@@ -44,7 +44,7 @@ E. Tell me the exact next step name and wait for my "go".
 
 | ID | Status |
 |---|---|
-| R1 | Done |
+| R1 | In progress |
 | R2 | Done |
 | R3 | Done |
 | R4 | Done |
@@ -83,7 +83,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 9 | tests-and-polish | DONE |
 | 10 | readme-docs | DONE |
 | 11 | decisions-md | DONE |
-| 12 | final-audit | TODO |
+| 12 | final-audit | DONE |
 
 ## Key architecture decisions
 
@@ -94,6 +94,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Put the Axios API base URL in `VITE_API_URL` and expose it through one shared client instance.
 - Use Tailwind CSS v3 with `darkMode: 'class'`. PostCSS and Autoprefixer are included as Tailwind build plumbing.
 - Use root `concurrently` to run both development servers together.
+- For production, the user has selected MongoDB Atlas and wants the site deployed to cloud hosting. Local `.env` examples remain for development; deploy the API with Atlas `MONGO_URI` and the exact frontend `CLIENT_ORIGIN`, then build the static client with `VITE_API_URL` pointed at the deployed API. Hosting provider selection is pending.
 - Implement only wildcard Option 3: nested checklist and animated completion progress.
 - Step 1 adds the Node/Express and Vite/React skeletons, lockfiles, a health route, and a client health check. Task features remain for their later steps.
 - Step 2 adds a Mongoose Task model with timestamps, explicit `version`, subtasks, tags, and the `{ columnId, orderIndex }` index.
@@ -143,6 +144,10 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Step 11 adds root `DECISIONS.md` with first-person answers to the four required assessment questions. Its AI retrospective uses only incidents already listed in this file's AI MISTAKES LOG; no new examples were invented.
 - `DECISIONS.md` describes the current implementation separately from proposals. The scale analysis identifies the unpaginated `GET /api/tasks` and full client render as the first performance bottleneck, then proposes per-column cursor pagination, indexed neighbor lookups, windowed rendering, and granular live events.
 - Step 11 verification passed: all four decision headings are present, the retrospective examples match the existing mistake log, `npm test` passes (7 server and 3 client tests), `npm run lint` passes, and the client production build passes.
+- Step 12 audits R1–R21 against the assessment and source lines. It corrected the PDF transcript character encoding in `docs/REQUIREMENTS.md`, aligned R15/R17 statuses with completed deliverables, corrected the README tree rendering, and left R1 in progress because deployment is not configured.
+- Final compliance audit re-read the 3-page source PDF and compared it with the transcript in `docs/REQUIREMENTS.md`. The complete-mastery/live-walkthrough requirement is now explicit in R21, including the arbitrary hook, middleware, or controller path from client render to database write. No other substantive source requirement was missing from the transcript.
+- Final compliance audit re-inspected the implementation files and found no feature-level FAIL that warranted refactoring. It confirmed that only wildcard Option 3 (nested checklist/progress) exists. R1 remains in progress because no deployment is configured; R18-R20 and the candidate's live-defense ability remain unverified external requirements.
+- Final audit verification reran `npm test` (7 server + 3 client tests passed), `npm run lint` (server and client passed), and `npm run build --prefix client` (passed). The standalone concurrency script, browser/manual checks, deployment, Git history, remote branch/PR state, and secret history were not verified. The AI must not run Git commands.
 
 ## AI MISTAKES LOG
 
@@ -153,18 +158,22 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - While wiring Step 8's rename-save callback, my first edit omitted the closing brace for its changes object. A source inspection caught the syntax error before verification; I corrected the object literal before the Step 8 verification run.
 - The first Step 9 API test setup used a suite hook whose startup overlapped requests while MongoDB Memory Server was still downloading. I changed setup to top-level await so API tests cannot start until the replica set and indexes are ready.
 - Client lint caught an unused caught-error binding in the delete dialog; I removed the binding while retaining the rollback's pending-state reset.
+- The optimistic create success path initially kept the temporary ID in the column order while deleting its task record. Sorting then read `orderIndex` from an undefined task after the server had already returned 201, so the UI showed a false failure although the task was saved. I remove the temporary ID before inserting the server task and added a client store regression test for create reconciliation.
 
 ## Known issues
 
 - Server dependency installation reported 7 npm audit vulnerabilities (6 moderate, 1 high); client install reported 9 (7 moderate, 2 critical). Do not auto-upgrade dependencies; review during final audit.
 - The seed command intentionally deletes every document from the Task collection before inserting its sample board. Do not run it against a database containing tasks that need to be kept.
-- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The assessment's rapid-move requirement is covered, but create ordering under concurrent POSTs remains for final-audit review.
+- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The assessment's rapid-move requirement is covered, but concurrent create ordering remains a known limitation.
 - Move rollback/conflict handling now covers queued moves; overlapping edit/delete requests against the same task are not serialized by the move queue.
 - Versioned `/move` writes require a MongoDB replica set; local standalone MongoDB returns a documented 503 until configured as a replica set.
 - The standalone `server/scripts/concurrencyTest.js` was not separately run; the Step 9 integration suite exercised five concurrent moves against a replica-set MongoDB Memory Server.
 - Step 7's visual reload checks in both themes and browser verification have not been run yet; contrast ratios are computed from the palette hex values and implemented classes.
 - Step 8 atomic checklist API behavior is covered by the passing integration suite. Client checklist rollback/progress UI and seed contents still need manual verification.
 - The high-scale pagination, virtualization, live event, and version checks for all edit/delete operations in `DECISIONS.md` are proposals only, not implemented features.
+- Production database preference is MongoDB Atlas. Deployment is not configured yet because the hosting provider is not selected; R1 remains in progress until the app is hosted and reachable.
+- The documented single-branch workflow has not yet been merged into `main`. Git branch and commit history, PR count, public repository state, and whether secrets ever entered history must be checked by the user before submission.
+- The required 48-hour submission timing and the candidate's ability to explain/live-modify code cannot be proven from repository files; the candidate must verify timing and demonstrate mastery during the review.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
 - Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
 
@@ -281,6 +290,27 @@ Likely interview questions:
 - Confirm high-scale recommendations are labeled as proposals, not current features.
 - Run `npm test`, `npm run lint`, and `npm run build --prefix client` before committing the documentation change.
 
+## Step 12 defense
+
+The final audit compares every checklist requirement with implementation files and the PDF rubric. The local verification path is reproducible: the server suite runs against an in-memory replica set, the client suite exercises Zustand transitions, ESLint checks both apps, and Vite builds the client. This does not verify public hosting, GitHub PR history, secret history, the 48-hour deadline, or a candidate's live defense.
+
+Trade-off: I did not run Git commands because the project rules reserve them for the user. I therefore report branch, commit, PR, and historical secret checks as pending instead of presenting the working tree as proof. The single documented feature branch still needs a PR merged to `main`; a deployment target also remains unspecified.
+
+Likely interview questions:
+
+1. **Which checks can be reproduced locally?** `npm test`, `npm run lint`, and `npm run build --prefix client` all pass. Browser-specific accessibility/theme checks and a real deploy still need human verification.
+2. **Why is R1 still in progress?** The PDF's project mission says to deploy the application, but this repository has no configured hosting target or live deployment.
+3. **What must happen before evaluation?** Verify the public repository, branch and commit history, PR merge into `main`, absence of secrets in history, and clean-clone setup; then demonstrate code ownership in the live defense.
+
+## Step 12 verification
+
+- `npm test` passes with 7 server tests and 3 client tests.
+- `npm run lint` passes for both server and client.
+- `npm run build --prefix client` passes.
+- `docs/REQUIREMENTS.md` transcript was checked against `pdftotext -layout docs/ASSESSMENT.pdf -`; the mojibake characters were corrected.
+- Verify the env examples locally without displaying `server/.env`: `Get-Content server/.env.example`, `Get-Content client/.env.example`. Both must contain only non-secret development defaults.
+- Run the GitHub/history verification commands listed in the final response from the clone after fetching `main`.
+
 ## GIT COMMANDS
 
 The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Continue on the existing `feature/project-setup` branch for every remaining step, push that branch, and open a PR to `main` when the assessment is ready.
@@ -294,11 +324,11 @@ git status
 Atomic commits:
 
 ```sh
-git add DECISIONS.md README.md
-git commit -m "docs: explain TaskFlow design decisions"
+git add docs/REQUIREMENTS.md README.md
+git commit -m "docs: fix transcript encoding and audit statuses"
 
 git add CONTEXT.md
-git commit -m "docs: update context after decisions-md"
+git commit -m "docs: update context after final-audit"
 ```
 
 Push:
@@ -311,7 +341,7 @@ Pull Request:
 
 - Final PR title (after the remaining steps): `feat: complete TaskFlow assessment implementation`
 - Final PR description: Complete the assessment in ordered steps on `feature/project-setup`, with resilient task CRUD, concurrent moves, accessible themes, the selected checklist wildcard, tests, and required documentation. Merge the completed PR into `main` on GitHub, not locally.
-- Defer opening/merging the PR and deleting this branch until the final-audit step, so later steps can continue on the same branch.
+- Open and merge the final PR only after the user has reviewed the audit's pending deployment and GitHub verification items.
 
 Cleanup after the PR is merged:
 
@@ -325,4 +355,4 @@ Run this cleanup only after the final PR is merged on GitHub.
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `final-audit`.
+Next step: submission checklist (deployment and GitHub verification remain user actions; no more implementation step is planned).

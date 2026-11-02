@@ -49,6 +49,25 @@ describe('board store move behavior', () => {
     setTasks([task('task-a')]);
   });
 
+  it('replaces the optimistic create ID without leaving a dangling card ID', async () => {
+    setTasks([]);
+    const savedTask = { ...task('created-task'), columnId: 'in-progress', orderIndex: 1000 };
+    api.postTask.mockResolvedValue(savedTask);
+
+    const pendingCreate = useBoardStore.getState().createTask({
+      title: 'Build menu import preview',
+      columnId: 'in-progress',
+    });
+    const temporaryId = useBoardStore.getState().columnIds['in-progress'][0];
+    expect(temporaryId).toMatch(/^temp-/);
+
+    await expect(pendingCreate).resolves.toEqual(savedTask);
+    const state = useBoardStore.getState();
+    expect(state.columnIds['in-progress']).toEqual(['created-task']);
+    expect(state.tasksById['created-task']).toEqual(savedTask);
+    expect(state.tasksById[temporaryId]).toBeUndefined();
+  });
+
   it('moves optimistically before the API response and reconciles the saved task', async () => {
     const response = deferred();
     api.moveTask.mockReturnValue(response.promise);

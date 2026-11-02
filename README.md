@@ -42,31 +42,32 @@ The board store keeps task records keyed by ID and ordered ID lists per column. 
 
 ```text
 .
-├── client/
-│   ├── src/
-│   │   ├── api/             # Axios instance and task API functions
-│   │   ├── components/      # Board, columns, cards, dialogs, theme control
-│   │   ├── hooks/           # Theme and dialog behavior
-│   │   ├── store/           # Zustand state and move queue
-│   │   └── utils/           # Client-side fractional ordering
-│   └── .env.example
-├── server/
-│   ├── src/
-│   │   ├── config/          # Database setup
-│   │   ├── controllers/     # Request handlers
-│   │   ├── middleware/      # Validation and failure simulation
-│   │   ├── models/          # Mongoose models
-│   │   ├── routes/          # REST routes
-│   │   ├── scripts/         # Seeder
-│   │   └── utils/           # Fractional indexes and async handling
-│   ├── scripts/             # Concurrency check
-│   ├── test/                # Server unit and API tests
-│   └── .env.example
-├── docs/
-│   ├── ASSESSMENT.pdf
-│   └── REQUIREMENTS.md
-├── CONTEXT.md
-└── package.json
++-- client/
+|   +-- src/
+|   |   +-- api/             # Axios instance and task API functions
+|   |   +-- components/      # Board, columns, cards, dialogs, theme control
+|   |   +-- hooks/           # Theme and dialog behavior
+|   |   +-- store/           # Zustand state and move queue
+|   |   +-- utils/           # Client-side fractional ordering
+|   +-- .env.example
++-- server/
+|   +-- src/
+|   |   +-- config/          # Database setup
+|   |   +-- controllers/     # Request handlers
+|   |   +-- middleware/      # Validation and failure simulation
+|   |   +-- models/          # Mongoose models
+|   |   +-- routes/          # REST routes
+|   |   +-- scripts/         # Seeder
+|   |   +-- utils/           # Fractional indexes and async handling
+|   +-- scripts/             # Concurrency check
+|   +-- test/                # Server unit and API tests
+|   +-- .env.example
++-- docs/
+|   +-- ASSESSMENT.pdf
+|   +-- REQUIREMENTS.md
++-- CONTEXT.md
++-- DECISIONS.md
++-- package.json
 ```
 
 ## Prerequisites
@@ -196,6 +197,16 @@ Writes can also return `500` for a simulated/server error or `503` when a move r
 ## Theme behavior
 
 The theme toggle stores an explicit choice under localStorage key `taskflow-theme`. On page load, a blocking script in `client/index.html` applies that choice to the document before React starts. If there is no saved choice, the page follows the operating system's light/dark preference. This avoids a flash of the wrong theme during reload.
+
+## Cloud deployment configuration
+
+The application is configured for a separate static frontend, API service, and MongoDB Atlas database. The repository does not select a hosting provider; apply these values in whichever providers you choose:
+
+- **API service:** use `server/` as the service root, `npm install` to install, and `npm start` to run. Set `MONGO_URI` to the Atlas application's connection string, `CLIENT_ORIGIN` to the deployed frontend's exact origin, and `PORT` only if the provider does not supply it. Set the health check to `/api/health`.
+- **Frontend static site:** use `client/` as the service root, `npm install && npm run build` as the build command, and `dist` as the publish directory. Set `VITE_API_URL` to the deployed API URL ending in `/api` before the build.
+- **MongoDB Atlas:** create a database user for the app and allow the API host's outbound IP/network in the Atlas project's IP access list. Atlas supports the transactions used by card moves. Keep the Atlas URI in the API provider's secret environment settings; do not commit it or use the seeder against production data.
+
+Deploy the API first, then set the frontend's `VITE_API_URL` and the API's `CLIENT_ORIGIN` to their deployed URLs. Rebuild/redeploy the frontend after changing `VITE_API_URL`, because Vite embeds that value during its build.
 
 ## Screenshots
 

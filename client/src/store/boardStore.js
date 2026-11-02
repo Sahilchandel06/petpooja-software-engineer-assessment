@@ -201,6 +201,8 @@ export const useBoardStore = create((set, get) => ({
       set((state) => {
         const tasksById = { ...state.tasksById };
         const confirmedTasksById = { ...state.confirmedTasksById };
+        // Remove the temporary card ID before sorting, since its record is replaced below.
+        const columnIdsWithoutTemporary = removeId(state.columnIds[columnId], temporaryId);
         delete tasksById[temporaryId];
         tasksById[task._id] = task;
         confirmedTasksById[task._id] = task;
@@ -209,7 +211,7 @@ export const useBoardStore = create((set, get) => ({
           confirmedTasksById,
           columnIds: {
             ...state.columnIds,
-            [columnId]: insertByOrder(state.columnIds[columnId], task._id, task, tasksById),
+            [columnId]: insertByOrder(columnIdsWithoutTemporary, task._id, task, tasksById),
           },
         };
       });
