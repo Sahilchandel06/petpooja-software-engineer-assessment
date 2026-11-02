@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
 import { getEndIndex } from '../utils/fractionalIndex.js';
-import { getTasks, moveTask as sendMoveTask, patchTask, postTask, removeTask } from '../api/tasks.js';
+import {
+  getTasks,
+  moveTask as sendMoveTask,
+  patchSubtask as sendPatchSubtask,
+  patchTask,
+  postSubtask as sendPostSubtask,
+  postTask,
+  removeSubtask as sendRemoveSubtask,
+  removeTask,
+} from '../api/tasks.js';
 import { moveOperationQueue } from './operationQueue.js';
 
 export const COLUMNS = [
@@ -81,6 +90,76 @@ export const useBoardStore = create((set, get) => ({
   columnIds: emptyColumnIds(),
   loading: true,
   error: null,
+  pendingChecklistByTask: {},
+
+  async mutateSubtasks(taskId, nextSubtasks, request) {
+    const previousTask = get().tasksById[taskId];
+    if (!previousTask || previousTask._pending) return;
+    set((state) => ({
+      tasksById: { ...state.tasksById, [taskId]: { ...previousTask, subtasks: nextSubtasks } },
+      pendingChecklistByTask: {
+        ...state.pendingChecklistByTask,
+        [taskId]: (state.pendingChecklistByTask[taskId] || 0) + 1,
+      },
+    }));
+    try {
+      const savedTask = await request();
+      set((state) => {
+        const confirmed = state.confirmedTasksById[taskId];
+        // Ignore an older response if another atomic task update has already advanced the revision.
+        const canonical = confirmed?.version > savedTask.version ? confirmed : savedTask;
+        const visible = state.tasksById[taskId] || canonical;
+        return {
+          tasksById: {
+            ...state.tasksById,
+            [taskId]: { ...canonical, columnId: visible.columnId, orderIndex: visible.orderIndex },
+          },
+          confirmedTasksById: { ...state.confirmedTasksById, [taskId]: canonical },
+        };
+      });
+      return savedTask;
+    } catch (error) {
+      set((state) => {
+        const visible = state.tasksById[taskId];
+        return visible ? {
+          tasksById: { ...state.tasksById, [taskId]: { ...visible, subtasks: previousTask.subtasks } },
+        } : state;
+      });
+      reportMutationFailure(error);
+      throw error;
+    } finally {
+      set((state) => {
+        const remaining = (state.pendingChecklistByTask[taskId] || 1) - 1;
+        const pendingChecklistByTask = { ...state.pendingChecklistByTask };
+        if (remaining === 0) delete pendingChecklistByTask[taskId];
+        else pendingChecklistByTask[taskId] = remaining;
+        return { pendingChecklistByTask };
+      });
+    }
+  },
+
+  addSubtask(taskId, input) {
+    const task = get().tasksById[taskId];
+    if (!task) return Promise.resolve();
+    const nextSubtasks = [...task.subtasks, { _id: `temp-${operationId()}`, ...input, completed: false }];
+    return get().mutateSubtasks(taskId, nextSubtasks, () => sendPostSubtask(taskId, input));
+  },
+
+  updateSubtask(taskId, subtaskId, changes) {
+    const task = get().tasksById[taskId];
+    if (!task) return Promise.resolve();
+    const nextSubtasks = task.subtasks.map((subtask) => (
+      String(subtask._id) === String(subtaskId) ? { ...subtask, ...changes } : subtask
+    ));
+    return get().mutateSubtasks(taskId, nextSubtasks, () => sendPatchSubtask(taskId, subtaskId, changes));
+  },
+
+  deleteSubtask(taskId, subtaskId) {
+    const task = get().tasksById[taskId];
+    if (!task) return Promise.resolve();
+    const nextSubtasks = task.subtasks.filter((subtask) => String(subtask._id) !== String(subtaskId));
+    return get().mutateSubtasks(taskId, nextSubtasks, () => sendRemoveSubtask(taskId, subtaskId));
+  },
 
   async fetchTasks() {
     set({ loading: true, error: null });
@@ -274,8 +353,18 @@ export const useBoardStore = create((set, get) => ({
           if (!savedTask) {
             const currentTask = error.response?.data?.error?.currentTask;
             set((state) => {
-              const tasksById = { ...state.tasksById, [taskId]: currentTask || state.confirmedTasksById[taskId] };
-              return { tasksById, confirmedTasksById: currentTask ? { ...state.confirmedTasksById, [taskId]: currentTask } : state.confirmedTasksById, columnIds: rebuildColumnIds(tasksById) };
+              const confirmed = state.confirmedTasksById[taskId];
+              const canonical = currentTask && (!confirmed || currentTask.version >= confirmed.version) ? currentTask : confirmed;
+              const visible = state.tasksById[taskId];
+              const reconciled = canonical && state.pendingChecklistByTask[taskId]
+                ? { ...canonical, subtasks: visible.subtasks }
+                : canonical;
+              const tasksById = { ...state.tasksById, [taskId]: reconciled };
+              return {
+                tasksById,
+                confirmedTasksById: canonical ? { ...state.confirmedTasksById, [taskId]: canonical } : state.confirmedTasksById,
+                columnIds: rebuildColumnIds(tasksById),
+              };
             });
             moveOperationQueue.dropPendingForTask(taskId, Object.assign(new Error('Queued move was dropped because an earlier move failed.'), { dropped: true }));
             reportMutationFailure(error);
@@ -286,7 +375,9 @@ export const useBoardStore = create((set, get) => ({
         const { rebalancedTasks = [], ...savedRecord } = savedTask;
         set((state) => {
           const tasksById = { ...state.tasksById };
-          const confirmedTasksById = { ...state.confirmedTasksById, [taskId]: savedRecord };
+          const currentConfirmed = state.confirmedTasksById[taskId];
+          const canonical = currentConfirmed?.version > savedRecord.version ? currentConfirmed : savedRecord;
+          const confirmedTasksById = { ...state.confirmedTasksById, [taskId]: canonical };
           rebalancedTasks.forEach((rebalancedTask) => {
             const neighborId = String(rebalancedTask._id);
             confirmedTasksById[neighborId] = rebalancedTask;
@@ -296,9 +387,14 @@ export const useBoardStore = create((set, get) => ({
           });
           // Preserve a later optimistic position while accepting the new server version.
           const hasLaterMove = moveOperationQueue.hasPendingForTask(taskId);
-          tasksById[taskId] = hasLaterMove
-            ? { ...tasksById[taskId], version: savedRecord.version, updatedAt: savedRecord.updatedAt }
-            : savedRecord;
+          const pendingChecklist = state.pendingChecklistByTask[taskId] > 0;
+          const currentVisible = tasksById[taskId];
+          tasksById[taskId] = {
+            ...(hasLaterMove ? currentVisible : canonical),
+            version: canonical.version,
+            updatedAt: canonical.updatedAt,
+            ...(pendingChecklist ? { subtasks: currentVisible.subtasks } : {}),
+          };
           return { tasksById, confirmedTasksById, columnIds: rebuildColumnIds(tasksById) };
         });
         return savedRecord;
