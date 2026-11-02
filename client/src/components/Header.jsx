@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { setSimulateFailures } from '../api/http.js';
 import { useBoardStore } from '../store/boardStore.js';
+import { ThemeToggle } from './ThemeToggle.jsx';
 
 export function Header({ onCreateTask }) {
   const taskCount = useBoardStore((state) => Object.keys(state.tasksById).length);
@@ -20,6 +21,7 @@ export function Header({ onCreateTask }) {
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{taskCount} {taskCount === 1 ? 'task' : 'tasks'}</p>
       </div>
       <div className="flex flex-wrap items-center gap-4">
+        <ThemeToggle />
         {import.meta.env.DEV && (
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
@@ -38,7 +40,7 @@ export function Header({ onCreateTask }) {
         <button
           type="button"
           onClick={onCreateTask}
-          className="rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+          className="rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
         >
           <span aria-hidden="true">＋ </span>New task
         </button>
