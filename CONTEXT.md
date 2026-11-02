@@ -19,6 +19,8 @@ Build the TaskFlow resilient Kanban assessment from `docs/ASSESSMENT.pdf`, the s
 - Ask me before deviating from the spec.
 - Use the existing `feature/project-setup` branch for all remaining steps; do not create a new branch per step. Push each step's commits to this same feature branch and merge the completed work into `main` through a Pull Request.
 
+Branch continuity: keep `feature/project-setup` active through the remaining steps. Step prompts may name a temporary branch, but this persistent user preference takes precedence. Defer PR creation and branch cleanup until the final implementation is ready, then merge one PR to `main`.
+
 ## STEP-END PROTOCOL
 
 STEP-END PROTOCOL (do this at the end of EVERY step, in this order):
@@ -52,15 +54,15 @@ E. Tell me the exact next step name and wait for my "go".
 | R8 | Done |
 | R9 | Done |
 | R10 | Done |
-| R11 | Not started |
-| R12 | Not started |
+| R11 | Done |
+| R12 | Done |
 | R13 | Not started |
 | R14 | Not started |
 | R15 | Not started |
 | R16 | Done |
 | R17 | In progress |
-| R18 | Not started |
-| R19 | Not started |
+| R18 | In progress |
+| R19 | In progress |
 | R20 | Not started |
 | R21 | Not started |
 
@@ -76,7 +78,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 4 | drag-and-drop | DONE |
 | 5 | optimistic-ui | DONE |
 | 6 | concurrency | DONE |
-| 7 | theme-support | TODO |
+| 7 | theme-support | DONE |
 | 8 | wildcard-checklist | TODO |
 | 9 | tests-and-polish | TODO |
 | 10 | readme-docs | TODO |
@@ -120,6 +122,10 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - MongoDB transactions require a replica set. MongoDB Atlas works; local standalone deployments receive a 503 with the `mongod --replSet rs0` / `rs.initiate()` setup path. There is no unsafe non-transaction fallback.
 - Task creation is protected from same-tick duplicate submits by both the disabled pending button and a synchronous form ref guard.
 - `server/scripts/concurrencyTest.js` uses five concurrent distinct moves, replays an operation UUID, checks a stale-version 409, and asserts no lost/duplicate test cards and distinct ordered positions. It was not run because it writes to the configured database.
+- Step 7 sets the `dark` class from localStorage/system preference in a blocking head script before React starts; `useTheme` toggles and persists the choice, and listens for changes from another tab. The `ThemeToggle` announces the current mode and the mode it will switch to.
+- Keep the initial palette change instantaneous: no color transition is applied to the page on mount. React only hydrates after the root class already matches the saved/system theme.
+- Contrast was calculated using WCAG relative luminance for implemented text/background pairs. Light/dark ratios include body 17.06:1 / 18.41:1; muted text 4.76:1 minimum / 6.96:1 minimum; tags 9.45:1 / 8.40:1; priority badges Low 8.57:1 / 11.81:1, Medium 8.15:1 / 12.03:1, High 7.97:1 / 11.08:1. Other pairs and exact surfaces are recorded under Step 7 verification below.
+- Dark styles cover board, columns, cards, tags, priorities, forms, errors, drag preview, skeletons, and toast surfaces. Scrollbars and focus rings adapt to the root theme class.
 
 ## AI MISTAKES LOG
 
@@ -136,6 +142,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Move rollback/conflict handling now covers queued moves; overlapping edit/delete requests against the same task are not serialized by the move queue.
 - Versioned `/move` writes require a MongoDB replica set; local standalone MongoDB returns a documented 503 until configured as a replica set.
 - The new concurrency script and transaction/rebalance paths have not been executed against MongoDB. API/client build verification remains pending.
+- Step 7's visual reload checks in both themes and browser verification have not been run yet; contrast ratios are computed from the palette hex values and implemented classes.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
 - Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
@@ -148,28 +155,29 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 
 ## Defend it
 
-Step 6 move flow: a drag/button calls `moveTask`, which records neighbor IDs and immediately updates the Zustand board. The action enqueues a task-scoped operation. When its turn arrives, it reads the latest confirmed version, rebases the target from available neighbor anchors, and sends one UUID-keyed PATCH. The server starts a session, returns an already-recorded result for an exact replay, checks the current version, optionally rebalances destination neighbors inside the transaction, and conditionally updates the moved task by `_id` plus version. It stores the result before commit. The client accepts server versions and any rebalance records. A 409 reconciles the returned current task; another failure restores the confirmed record, drops queued moves for that card, retains independent moves, and displays one toast.
+Step 7 theme flow: the browser parses `index.html` and synchronously reads `taskflow-theme`; when no valid value exists, it reads `prefers-color-scheme`. The inline script applies `dark` to `<html>` before CSS is painted and before Vite's React module runs. React mounts `Header` and `ThemeToggle`; `useTheme` initializes from that already-set root attribute. A button activation toggles the root class/data attribute, updates React state, and persists localStorage. The `storage` listener mirrors explicit theme changes from other tabs. No initial color transition is used, so reload starts directly in the selected palette.
 
-For five drags in one second over a slow 3G connection: each drag updates Zustand immediately and enqueues a distinct UUID operation; only the first HTTP call starts. The next four wait FIFO while the first request is in flight. On each success, its server version becomes the version used by the next request, and neighbor anchors are resolved against current board order. If a move fails, later queued moves for that same card are dropped and the card returns to confirmed server state; moves for other cards continue. A lost response retries once with the identical UUID and payload, so server idempotency returns the original result instead of applying it twice. Version conflicts include currentTask and are reconciled.
+An effect-only initializer flickers because effects run after React renders and the browser may paint first. The first frame can therefore use the default light styles before the effect reads localStorage and applies dark mode. The blocking head script runs before that first themed paint.
 
-The shared Axios request interceptor adds `x-simulate-fail: true` only to writes while the development switch is enabled and aborts requests after ten seconds. Store catch blocks restore state, translate HTTP/network/timeout errors into one toast, and rethrow so forms can keep their inline error. Mutations do not set the board loading flag.
+Contrast pairs were calculated with WCAG relative luminance for each distinct text/background token pair in the current components. Primary/body text: slate-900/slate-50 (17.06:1), slate-100/slate-950 (18.41:1), slate-100/slate-900 (16.30:1), slate-900/white (17.85:1), white/slate-950 (17.85:1), white/slate-900 modal (17.85:1), white/slate-800 card (14.63:1). Secondary/labels: slate-600/white (7.58:1), slate-600/slate-50 (7.24:1), slate-500/white (4.76:1), slate-600/slate-100 empty-state (6.92:1), slate-400/slate-900 (6.96:1), slate-400/slate-950 (7.87:1), slate-400/slate-800 (5.71:1), slate-300/slate-800 (9.85:1), slate-300/slate-900 (12.02:1), slate-300/slate-950 (13.59:1), slate-300/slate-700 hover (6.97:1), slate-700/slate-50 (9.90:1). Column/tag/control text: slate-800/white (14.63:1), slate-800/slate-100 (13.35:1), slate-700/white (10.35:1), slate-700/slate-100 (9.45:1), slate-200/slate-700 (8.40:1), slate-200/slate-900 (14.48:1), slate-100/slate-800 (13.35:1), slate-100/slate-700 (9.45:1), slate-200/slate-950 (16.36:1). Indigo labels/buttons: indigo-700/slate-50 (7.55:1), indigo-300/slate-950 (10.12:1), indigo-700/white (7.90:1), indigo-700/indigo-50 hover (7.07:1), indigo-300/slate-800 hover (7.34:1), indigo-300/slate-700 hover (5.19:1), white/indigo-600 button (6.29:1), white/indigo-700 hover (7.90:1). Rose/error controls: rose-700/white (6.29:1), rose-700/rose-50 hover (5.72:1), rose-300/slate-800 (7.74:1), rose-300/slate-700 hover (5.48:1), white/rose-700 button (6.29:1), white/rose-600 hover (4.70:1). Priority badges: Low emerald-900/emerald-100 (8.57:1), dark emerald-200/emerald-950 (11.81:1); Medium amber-900/amber-100 (8.15:1), dark amber-200/amber-950 (12.03:1); High rose-900/rose-100 (7.97:1), dark rose-200/rose-950 (11.08:1). Error blocks/buttons: red-900/red-50 (9.16:1), red-100/red-950 (13.22:1), white/red-800 (8.31:1), white/red-700 hover (6.47:1). The minimum active text pair is 4.70:1, above WCAG AA's 4.5:1 threshold. Disabled controls keep full text opacity; decorative scrollbar and focus indicators are non-text visuals.
 
 Likely interview questions:
 
-1. **Why have a FIFO queue if the UI is already optimistic?** It lets the user see every drag immediately but sends writes in order, preventing requests from racing with a stale version.
-2. **What happens to five moves during a 3G delay?** The first writes immediately, the other four wait; each later request reads the latest confirmed version and resolves its anchors at send time. Same-task dependent requests are dropped after failure, independent requests continue, and a UUID retry is idempotent.
-3. **Why use a transaction and operation collection?** The transaction groups neighbor reindexing, version-checked task update, and idempotency result record so none can commit without the others. The TTL collection prevents a replay from applying twice and expires old records automatically.
+1. **Why initialize the theme in HTML instead of only in a React effect?** HTML's blocking script runs before first paint and before React; an effect runs after render and may run after a light frame is already visible.
+2. **How does theme persistence work?** The hook applies the selected class to `<html>` and stores `light` or `dark` under `taskflow-theme`; initial page load reads that value, otherwise it follows the OS preference.
+3. **How did you check accessible contrast?** I calculated relative luminance ratios for the actual Tailwind palette pairs used for body, muted text, tags, errors, controls, and all priority badges in both themes; the smallest recorded text ratio is 4.70:1, above 4.5:1.
+
+Step 6 concurrency defense: five rapid drags update the board immediately while a FIFO queue sends writes serially. Each request reads the latest confirmed version; a same-UUID retry is idempotent, a stale version returns `currentTask`, and dependent queued operations for a failed task are dropped while independent cards continue. Transactions keep versioned moves, neighbor rebalancing, and operation records consistent. The script is present but has not been run against MongoDB.
 ## How to verify
 
 - Run `npm run build --prefix client`.
-- Configure `server/.env` for a MongoDB replica set (Atlas works), then run `npm run dev` from the repository root.
-- Run `npm run test:concurrency --prefix server` against a disposable database while the API is running; it creates and deletes five uniquely named temporary tasks.
-- In the UI, drag five different cards within about one second. Confirm cards move immediately, network requests are sent serially, and final column membership/order persist after refresh.
-- Send an old version to `/move`; confirm the client adopts `error.currentTask` and shows a conflict toast.
-- Queue multiple moves rapidly and simulate a failure; confirm later moves for that same card are dropped and it returns to server state while unrelated card moves still complete.
-- Replay one exact move request with the same operationId and payload; confirm task version increments only once. Verify an expired operation record is eventually removed by MongoDB's TTL monitor.
-- Create two neighboring order indexes within epsilon, then move a card between them; confirm the destination column is rebalanced and visible cards retain order without a refetch.
-- Manual Step 5 rollback checks remain applicable to create, edit, delete, and network failures.
+- Start the app with `npm run dev` from the repository root.
+- **Light-mode reload:** set the OS preference to light, clear `taskflow-theme` from localStorage, and reload. Confirm the page appears light immediately; toggle dark, reload, and confirm it remains dark without a light flash.
+- **Dark-mode reload:** set localStorage `taskflow-theme` to `dark`, reload under a light OS preference, and confirm dark mode appears on the first frame. Toggle to light, reload, and confirm the saved light theme is immediate.
+- Confirm the accessible theme toggle label/pressed state updates, localStorage changes, and a second open tab follows storage events.
+- Inspect card body/description, all priority badges, tags, modal inputs, toasts, drag overlay, empty/error states, loading skeletons, scrollbars, and keyboard focus in both themes.
+- Confirm text/badge pair ratios recorded above stay above 4.5:1. The contrast check used these exact Tailwind color values: primary/body, muted, tags, badges, buttons, modal/toast, and error states. Decorative borders/focus indicators are not text pairs.
+- Existing Step 5 and Step 6 manual checks remain applicable; Step 6 database script was not run.
 
 ## GIT COMMANDS
 
@@ -184,17 +192,17 @@ git status
 Atomic commits:
 
 ```sh
-git add client/src/store/operationQueue.js client/src/store/boardStore.js client/src/utils/fractionalIndex.js client/src/components/TaskModal.jsx
-git commit -m "feat: serialize optimistic move operations"
+git add client/index.html
+git commit -m "feat: prevent theme flash before app load"
 
-git add server/src/models/MoveOperation.js server/src/controllers/taskController.js server/src/routes/taskRoutes.js server/src/app.js server/src/server.js
-git commit -m "feat: enforce versioned idempotent task moves"
+git add client/src/hooks/useTheme.js client/src/components/ThemeToggle.jsx client/src/components/Header.jsx
+git commit -m "feat: add persisted theme toggle"
 
-git add server/scripts/concurrencyTest.js server/package.json
-git commit -m "test: add concurrent move integration script"
+git add client/src/index.css client/src/App.jsx client/src/components/Board.jsx client/src/components/EmptyState.jsx
+git commit -m "style: complete accessible light and dark palettes"
 
 git add CONTEXT.md
-git commit -m "docs: update context after concurrency"
+git commit -m "docs: update context after theme-support"
 ```
 
 Push:
@@ -205,9 +213,9 @@ git push origin feature/project-setup
 
 Pull Request:
 
-- Title: `feat: complete TaskFlow assessment implementation`
-- Description: Implement the assessment in steps on the existing `feature/project-setup` branch. Merge the completed branch into `main` on GitHub, not locally.
-- Open a PR into `main` and merge it on GitHub, not locally.
+- Final PR title (after the remaining steps): `feat: complete TaskFlow assessment implementation`
+- Final PR description: Complete the assessment in ordered steps on `feature/project-setup`, with resilient task CRUD, concurrent moves, accessible themes, the selected checklist wildcard, tests, and required documentation. Merge the completed PR into `main` on GitHub, not locally.
+- Defer opening/merging the PR and deleting this branch until the final-audit step, so later steps can continue on the same branch.
 
 Cleanup after the PR is merged:
 
@@ -215,8 +223,10 @@ Cleanup after the PR is merged:
 git checkout main && git pull origin main && git branch -d feature/project-setup
 ```
 
+Run this cleanup only after the final PR is merged on GitHub.
+
 ## HOW TO RESUME
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `theme-support`.
+Next step: `wildcard-checklist`.
