@@ -58,9 +58,9 @@ E. Tell me the exact next step name and wait for my "go".
 | R12 | Done |
 | R13 | Done |
 | R14 | Done |
-| R15 | Not started |
+| R15 | Done |
 | R16 | Done |
-| R17 | In progress |
+| R17 | Done |
 | R18 | In progress |
 | R19 | In progress |
 | R20 | In progress |
@@ -82,7 +82,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 8 | wildcard-checklist | DONE |
 | 9 | tests-and-polish | DONE |
 | 10 | readme-docs | DONE |
-| 11 | decisions-md | TODO |
+| 11 | decisions-md | DONE |
 | 12 | final-audit | TODO |
 
 ## Key architecture decisions
@@ -140,6 +140,9 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Step 10 adds the root README with project overview, Mermaid architecture, representative folder tree, prerequisites, local/Atlas replica-set notes, environment setup, run/seed/test commands, optimistic-failure demo, concurrency script usage, API reference, theme behavior, and a screenshot placeholder.
 - The server env template covers `MONGO_URI`, `PORT`, and `CLIENT_ORIGIN`; the client env template covers `VITE_API_URL` with the `/api` prefix. Both use local development values and contain no credentials. No env template changes were needed.
 - Step 10 verified the documented root test/lint/build commands: `npm test`, `npm run lint`, and `npm run build --prefix client` all pass. The API table was checked against `server/src/routes/taskRoutes.js`; the documented concurrency command matches the server script name.
+- Step 11 adds root `DECISIONS.md` with first-person answers to the four required assessment questions. Its AI retrospective uses only incidents already listed in this file's AI MISTAKES LOG; no new examples were invented.
+- `DECISIONS.md` describes the current implementation separately from proposals. The scale analysis identifies the unpaginated `GET /api/tasks` and full client render as the first performance bottleneck, then proposes per-column cursor pagination, indexed neighbor lookups, windowed rendering, and granular live events.
+- Step 11 verification passed: all four decision headings are present, the retrospective examples match the existing mistake log, `npm test` passes (7 server and 3 client tests), `npm run lint` passes, and the client production build passes.
 
 ## AI MISTAKES LOG
 
@@ -161,7 +164,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - The standalone `server/scripts/concurrencyTest.js` was not separately run; the Step 9 integration suite exercised five concurrent moves against a replica-set MongoDB Memory Server.
 - Step 7's visual reload checks in both themes and browser verification have not been run yet; contrast ratios are computed from the palette hex values and implemented classes.
 - Step 8 atomic checklist API behavior is covered by the passing integration suite. Client checklist rollback/progress UI and seed contents still need manual verification.
-- `DECISIONS.md` remains for the next planned step.
+- The high-scale pagination, virtualization, live event, and version checks for all edit/delete operations in `DECISIONS.md` are proposals only, not implemented features.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
 - Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. At Step 6 start, `.git/HEAD` recorded `feature/project-setup`; the user confirmed this is the branch to use for all remaining steps. Earlier Step 1–5 commits may not be on `main` yet.
 
@@ -259,6 +262,25 @@ Likely interview questions:
 - Run `npm test`, `npm run lint`, and `npm run build --prefix client` using the instructions documented in the README.
 - Verify the concurrency script only after starting the API and configuring a disposable replica-set database.
 
+## Step 11 defense
+
+The document answers the assessment's four questions in first person. It compares the selected Zustand store with Redux Toolkit and Context plus `useReducer`, traces five optimistic drags through the client queue and conditional transactional move endpoint, limits the AI retrospective to incidents in the existing mistake log, and analyzes the current unpaginated list/read and render path before proposing scale changes.
+
+Trade-off: this is a design explanation rather than new application behavior. It explicitly distinguishes existing code from proposed pagination, windowing, event delivery, and edit/delete concurrency work; those proposals should not be mistaken for implemented features.
+
+Likely interview questions:
+
+1. **Why does the browser serialize moves if the server uses versions?** The FIFO preserves this browser's intended order and supplies each request the latest confirmed task version; server version checks still defend against other clients.
+2. **What is the first scale bottleneck?** The current `GET /api/tasks` returns the full collection and the browser builds the full board. Cursor pagination and windowed rendering would bound the initial work.
+3. **What is not protected for collaboration?** Ordinary edits do not send an expected version, and clients receive no live events from other browsers. I call those gaps out instead of claiming full collaborative behavior.
+
+## Step 11 verification
+
+- Compare each `DECISIONS.md` heading with the four mandatory questions in `docs/ASSESSMENT.pdf` / `docs/REQUIREMENTS.md`.
+- Verify each AI retrospective example appears in the existing `CONTEXT.md` AI MISTAKES LOG.
+- Confirm high-scale recommendations are labeled as proposals, not current features.
+- Run `npm test`, `npm run lint`, and `npm run build --prefix client` before committing the documentation change.
+
 ## GIT COMMANDS
 
 The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Continue on the existing `feature/project-setup` branch for every remaining step, push that branch, and open a PR to `main` when the assessment is ready.
@@ -272,11 +294,11 @@ git status
 Atomic commits:
 
 ```sh
-git add README.md
-git commit -m "docs: add TaskFlow setup and usage guide"
+git add DECISIONS.md README.md
+git commit -m "docs: explain TaskFlow design decisions"
 
 git add CONTEXT.md
-git commit -m "docs: update context after readme-docs"
+git commit -m "docs: update context after decisions-md"
 ```
 
 Push:
@@ -303,4 +325,4 @@ Run this cleanup only after the final PR is merged on GitHub.
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `decisions-md`.
+Next step: `final-audit`.
