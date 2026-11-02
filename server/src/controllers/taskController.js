@@ -33,6 +33,22 @@ export async function updateTask(request, response) {
   return response.status(200).json(task);
 }
 
+export async function moveTask(request, response) {
+  const { columnId, orderIndex } = request.validated.body;
+  const task = await Task.findOneAndUpdate(
+    { _id: request.params.id },
+    { $set: { columnId, orderIndex }, $inc: { version: 1 } },
+    { new: true, runValidators: true },
+  );
+  if (!task) {
+    const error = new Error('Task not found');
+    error.status = 404;
+    error.code = 'TASK_NOT_FOUND';
+    throw error;
+  }
+  return response.status(200).json(task);
+}
+
 export async function deleteTask(request, response) {
   const task = await Task.findByIdAndDelete(request.params.id);
   if (!task) {

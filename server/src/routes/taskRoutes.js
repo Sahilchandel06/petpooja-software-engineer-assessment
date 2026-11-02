@@ -4,6 +4,7 @@ import {
   createTask,
   deleteTask,
   listTasks,
+  moveTask,
   updateTask,
 } from '../controllers/taskController.js';
 import { simulateFailure } from '../middleware/simulateFailure.js';
@@ -39,14 +40,21 @@ const updateTaskSchema = z.object({
   tags: taskFields.tags.optional(),
   subtasks: taskFields.subtasks.optional(),
 }).strict().refine((body) => Object.keys(body).length > 0, 'At least one task field is required');
+const moveTaskSchema = z.object({
+  columnId: columnSchema,
+  orderIndex: z.number().finite(),
+  version: z.number().int().nonnegative(),
+  operationId: z.string().trim().min(1),
+}).strict();
 
 const router = Router();
 
 router.get('/', asyncHandler(listTasks));
 router.post('/', simulateFailure, validateRequest(createTaskSchema), asyncHandler(createTask));
+router.patch('/:id/move', simulateFailure, validateObjectId(), validateRequest(moveTaskSchema), asyncHandler(moveTask));
 router.patch('/:id', simulateFailure, validateObjectId(), validateRequest(updateTaskSchema), asyncHandler(updateTask));
 router.delete('/:id', simulateFailure, validateObjectId(), asyncHandler(deleteTask));
 
-// TODO(step 4): add the dedicated /move endpoint for ordered column transitions.
+// TODO(step 6): use version and operationId for conflict detection and idempotent retries.
 
 export default router;
