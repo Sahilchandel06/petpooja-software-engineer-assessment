@@ -1,4 +1,8 @@
 import { memo } from 'react';
+import toast from 'react-hot-toast';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { getIndexForPosition } from '../utils/fractionalIndex.js';
 import { COLUMNS, useBoardStore } from '../store/boardStore.js';
 
 const priorityClasses = {
@@ -9,20 +13,84 @@ const priorityClasses = {
 
 export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit, onDelete }) {
   const task = useBoardStore((state) => state.tasksById[taskId]);
-  const moveTaskLocally = useBoardStore((state) => state.moveTaskLocally);
+  const moveTask = useBoardStore((state) => state.moveTask);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: taskId,
+    data: { type: 'task', taskId, columnId: task?.columnId },
+  });
 
   if (!task) return null;
 
   const columnIndex = COLUMNS.findIndex(({ id }) => id === task.columnId);
 
+  function getPositionIndex(ids, insertionIndex, tasksById) {
+    const previous = insertionIndex > 0 ? tasksById[ids[insertionIndex - 1]].orderIndex : null;
+    const next = insertionIndex < ids.length ? tasksById[ids[insertionIndex]].orderIndex : null;
+    return getIndexForPosition(previous, next);
+  }
+
+  function handleMove(direction) {
+    const state = useBoardStore.getState();
+    const currentTask = state.tasksById[taskId];
+    if (!currentTask) return;
+
+    const currentIds = state.columnIds[currentTask.columnId];
+    const currentIndex = currentIds.indexOf(taskId);
+    let toColumnId = currentTask.columnId;
+    let targetIds;
+    let insertionIndex;
+
+    if (direction === 'up' || direction === 'down') {
+      if ((direction === 'up' && currentIndex === 0)
+        || (direction === 'down' && currentIndex === currentIds.length - 1)) return;
+      targetIds = currentIds.filter((id) => id !== taskId);
+      insertionIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    } else {
+      const targetColumnIndex = columnIndex + (direction === 'left' ? -1 : 1);
+      if (targetColumnIndex < 0 || targetColumnIndex >= COLUMNS.length) return;
+      toColumnId = COLUMNS[targetColumnIndex].id;
+      targetIds = [...state.columnIds[toColumnId]];
+      insertionIndex = targetIds.length;
+    }
+
+    const targetIndex = getPositionIndex(targetIds, insertionIndex, state.tasksById);
+    moveTask(taskId, toColumnId, targetIndex).catch((error) => {
+      toast.error(error.response?.data?.error?.message || 'Could not move task.');
+    });
+  }
+
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <article
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 ${isDragging ? 'opacity-40' : ''}`}
+    >
       <div className="flex items-start justify-between gap-3">
-        <h3 className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">{task.title}</h3>
+        <h3 className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">
+          <button type="button" onClick={() => onEdit(taskId)} className="rounded text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-indigo-300">{task.title}</button>
+        </h3>
         <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${priorityClasses[task.priority]}`}>
           {task.priority}
         </span>
       </div>
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Drag ${task.title}`}
+        className="mt-1 cursor-grab rounded px-1 text-xs text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:cursor-grabbing dark:text-slate-400 dark:hover:bg-slate-700"
+      >
+        ⠿ Drag
+      </button>
       {task.description && (
         <p className="mt-2 truncate text-sm text-slate-600 dark:text-slate-300" title={task.description}>
           {task.description}
@@ -40,10 +108,10 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
         <button type="button" onClick={() => onEdit(taskId)} aria-label={`Edit ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300 dark:hover:bg-slate-700">Edit</button>
         <button type="button" onClick={() => onDelete(taskId)} aria-label={`Delete ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:text-rose-300 dark:hover:bg-slate-700">Delete</button>
         <div className="ml-auto flex gap-1" role="group" aria-label="Temporary local move controls">
-          <button type="button" disabled={columnIndex === 0} onClick={() => moveTaskLocally(taskId, 'left')} aria-label={`Move ${task.title} to previous column (local only)`} title="Previous column (local only)" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">←</button>
-          <button type="button" disabled={columnIndex === COLUMNS.length - 1} onClick={() => moveTaskLocally(taskId, 'right')} aria-label={`Move ${task.title} to next column (local only)`} title="Next column (local only)" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">→</button>
-          <button type="button" disabled={isFirst} onClick={() => moveTaskLocally(taskId, 'up')} aria-label={`Move ${task.title} up (local only)`} title="Move up (local only)" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↑</button>
-          <button type="button" disabled={isLast} onClick={() => moveTaskLocally(taskId, 'down')} aria-label={`Move ${task.title} down (local only)`} title="Move down (local only)" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↓</button>
+          <button type="button" disabled={columnIndex === 0} onClick={() => handleMove('left')} aria-label={`Move ${task.title} to previous column`} title="Previous column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">←</button>
+          <button type="button" disabled={columnIndex === COLUMNS.length - 1} onClick={() => handleMove('right')} aria-label={`Move ${task.title} to next column`} title="Next column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">→</button>
+          <button type="button" disabled={isFirst} onClick={() => handleMove('up')} aria-label={`Move ${task.title} up`} title="Move up" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↑</button>
+          <button type="button" disabled={isLast} onClick={() => handleMove('down')} aria-label={`Move ${task.title} down`} title="Move down" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↓</button>
         </div>
       </div>
     </article>
