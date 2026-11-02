@@ -2,6 +2,9 @@ node_modules/
 .env
 dist/
 coverage/
+.cache/
+.mongodb-binaries/
+server/test/.mongodb-binaries/
 logs/
 *.log
 .DS_Store
