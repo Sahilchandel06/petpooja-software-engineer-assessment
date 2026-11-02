@@ -44,8 +44,8 @@ E. Tell me the exact next step name and wait for my "go".
 | R1 | In progress |
 | R2 | In progress |
 | R3 | Not started |
-| R4 | Not started |
-| R5 | Not started |
+| R4 | Done |
+| R5 | Done |
 | R6 | Not started |
 | R7 | Not started |
 | R8 | Not started |
@@ -56,7 +56,7 @@ E. Tell me the exact next step name and wait for my "go".
 | R13 | Not started |
 | R14 | Not started |
 | R15 | Not started |
-| R16 | Not started |
+| R16 | Done |
 | R17 | In progress |
 | R18 | Not started |
 | R19 | Not started |
@@ -70,7 +70,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | # | Step | Status |
 |---:|---|---|
 | 1 | project-setup | DONE |
-| 2 | server-task-api | TODO |
+| 2 | server-task-api | DONE |
 | 3 | kanban-crud-ui | TODO |
 | 4 | drag-and-drop | TODO |
 | 5 | optimistic-ui | TODO |
@@ -93,46 +93,57 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Use root `concurrently` to run both development servers together.
 - Implement only wildcard Option 3: nested checklist and animated completion progress.
 - Step 1 adds the Node/Express and Vite/React skeletons, lockfiles, a health route, and a client health check. Task features remain for their later steps.
+- Step 2 adds a Mongoose Task model with timestamps, explicit `version`, subtasks, tags, and the `{ columnId, orderIndex }` index.
+- Use numeric fractional positions. Append by adding 1000; insert between neighbors with a midpoint; rebalance to spaced 1000 increments when a neighboring gap reaches epsilon.
+- Keep ordinary task PATCH updates separate from column/order moves; a dedicated `/move` route is reserved for step 4.
+- Use `asyncHandler` to forward Promise failures to Express 4's central JSON error handler. Zod body validation and ObjectId path validation reject invalid requests with HTTP 400.
+- Apply `x-simulate-fail: true` only to POST/PATCH/DELETE routes.
+- `npm run seed` resets only the Task collection and creates 15 sample tasks (5 per column) with varied priorities, tags, and completed/partial subtasks.
 
 ## AI MISTAKES LOG
 
 - The first client `package.json` draft accidentally gave the PostCSS dependency a leading space (`" postcss"`). Review caught the invalid package key; it was corrected to `"postcss"` before the successful dependency install and client build.
+- Starting root, client, and server npm installs concurrently during setup caused npm to record the parent project as a temporary server dependency. I removed that dependency, pruned its generated link, and removed the extraneous parent entry from `server/package-lock.json`.
 
 ## Known issues
 
 - Server dependency installation reported 3 npm audit vulnerabilities (2 moderate, 1 high); review during tests-and-polish without applying unapproved version changes.
-- The seed behavior is intentionally a placeholder; realistic sample data is deferred.
+- The seed command intentionally deletes every document from the Task collection before inserting its sample board. Do not run it against a database containing tasks that need to be kept.
+- Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The concurrency step must harden this write path.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
-- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/project-setup` and was given the checkout command.
+- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/server-task-api` and was given the checkout command.
 
 ## Last updated, current branch, last commit
 
 - Last updated: 2026-11-02
-- Current branch: `feature/project-setup` (requested branch; checkout not verified)
+- Current branch: `feature/server-task-api` (requested branch; checkout not verified)
 - Last commit: not inspected (Git commands are reserved for the user)
 
 ## Defend it
 
-The client renders `App`, mounts `HealthStatus`, and calls the shared Axios instance at `GET {VITE_API_URL}/health`. The server loads dotenv, connects Mongoose, and only then listens. Express applies Helmet, CORS, JSON parsing, and Morgan before the health route; unmatched requests pass through the 404 middleware to the central JSON error handler. No Kanban feature logic exists yet.
+The client renders `App`, mounts `HealthStatus`, and calls the shared Axios instance at `GET {VITE_API_URL}/health`. The server loads dotenv, connects Mongoose, and only then listens. Express applies Helmet, CORS, JSON parsing, and Morgan before the health route and task router. Task requests flow through route validation and `asyncHandler` into thin controllers and the Task model; failures reach the central JSON error handler. Simulated write failures short-circuit in middleware.
 
-Trade-offs: startup fails fast when MongoDB is unavailable instead of serving a misleading healthy API. Theme switching and persistence are deferred. The seed script is deliberately a placeholder. Root `concurrently` keeps both development processes easy to start together.
+Trade-offs: startup fails fast when MongoDB is unavailable instead of serving a misleading healthy API. Midpoint positions avoid renumbering on every future move, while the pure rebalance helper handles exhausted gaps. Normal PATCH deliberately cannot change column/order; the dedicated move endpoint is deferred. Seeding resets the Task collection for repeatable evaluation, so it removes existing Task documents. Theme switching and persistence remain deferred.
 
 Likely interview questions:
 
-1. **Why separate `app.js` from `server.js`?** Express configuration belongs in the app module; database connection and listening belong to process startup. This separation makes the HTTP app easier to inspect and reuse.
-2. **Why connect to MongoDB before listening?** The API should not advertise availability when its persistence layer is unreachable, so startup fails visibly.
-3. **How does the browser reach the API?** The page calls a shared Axios client whose base URL comes from `VITE_API_URL`; CORS allows the configured client origin.
+1. **Why use a fractional `orderIndex`?** Inserting between two cards uses their midpoint instead of rewriting later cards; after repeated insertions, rebalance restores wider gaps.
+2. **How are invalid bodies and IDs handled?** Zod middleware validates bodies and an ObjectId validator checks route IDs before controllers run; errors flow through `asyncHandler` to a consistent JSON response.
+3. **Why does the seed script delete existing tasks?** A predictable reset gives evaluators the same sample board each run; it clears only the Task collection, so use a disposable database if existing tasks matter.
 
 ## How to verify
 
 - Confirm `docs/REQUIREMENTS.md` includes the three-page transcript and requirements R1–R21.
-- `npm run build --prefix client` (passed during this step).
-- Copy templates: `Copy-Item server/.env.example server/.env` and `Copy-Item client/.env.example client/.env`; adjust values if needed.
-- Start both apps with `npm run dev`.
-- Confirm `http://localhost:5173` reports `API status: ok`.
-- Confirm `http://localhost:5000/api/health` returns `{"status":"ok"}` and an unknown `/api/...` path returns 404 JSON with `{ "error": { "message": "...", "code": "..." } }`.
-- MongoDB must be running and reachable at `MONGO_URI` for server startup.
+- No endpoint or seed commands were run in this step. Use the disposable/local database configured by `MONGO_URI`; `npm run seed --prefix server` deletes every Task document before inserting 15 sample tasks.
+- Start the API, set `$taskId = 'paste-the-_id-returned-by-POST'`, then use these PowerShell `curl.exe` examples.
+- `curl.exe -i http://localhost:5000/api/tasks` — list tasks.
+- `curl.exe -i -X POST http://localhost:5000/api/tasks -H "Content-Type: application/json" -d '{"title":"Check invoice export","columnId":"todo","priority":"High","tags":["billing"]}'` — create (201).
+- `curl.exe -i -X PATCH "http://localhost:5000/api/tasks/$taskId" -H "Content-Type: application/json" -d '{"title":"Review invoice export"}'` — update (200).
+- `curl.exe -i -X DELETE "http://localhost:5000/api/tasks/$taskId"` — delete (204).
+- `curl.exe -i -X POST http://localhost:5000/api/tasks -H "Content-Type: application/json" -H "x-simulate-fail: true" -d '{"title":"Simulated failure","columnId":"todo"}'` — simulated write failure (500).
+- `curl.exe -i -X PATCH http://localhost:5000/api/tasks/not-an-object-id -H "Content-Type: application/json" -d '{"title":"Bad id"}'` — validation failure (400).
+- `curl.exe -i -X PATCH http://localhost:5000/api/tasks/000000000000000000000000 -H "Content-Type: application/json" -d '{"title":"Missing task"}'` — valid ID with no matching task (404).
 
 ## GIT COMMANDS
 
@@ -147,36 +158,38 @@ git status
 Atomic commits:
 
 ```sh
-git add server/package.json server/package-lock.json server/src
-git commit -m "chore: scaffold Express server"
-git add client/package.json client/package-lock.json client/index.html client/vite.config.js client/tailwind.config.js client/postcss.config.js client/src
-git commit -m "chore: scaffold Vite client"
-git add package.json package-lock.json server/.env.example client/.env.example
-git commit -m "chore: add root dev runner and environment examples"
+git add server/src/models/Task.js server/src/utils/fractionalIndex.js
+git commit -m "feat: add task model and fractional index utility"
+git add server/src/controllers/taskController.js server/src/routes/taskRoutes.js server/src/middleware/validateRequest.js server/src/middleware/validateObjectId.js server/src/utils/asyncHandler.js server/src/app.js
+git commit -m "feat: add validated task CRUD endpoints"
+git add server/src/middleware/simulateFailure.js
+git commit -m "feat: add simulated write failure middleware"
+git add server/src/scripts/seed.js server/package.json server/package-lock.json
+git commit -m "feat: seed sample tasks across board columns"
 git add CONTEXT.md
-git commit -m "docs: update context after project-setup"
+git commit -m "docs: update context after server-task-api"
 ```
 
 Push:
 
 ```sh
-git push -u origin feature/project-setup
+git push -u origin feature/server-task-api
 ```
 
 Pull Request:
 
-- Title: `chore: bootstrap TaskFlow client and server`
-- Description: Add the Express/Mongoose and Vite/React skeletons, client health check, environment examples, and root development runner.
+- Title: `feat: add TaskFlow task API`
+- Description: Add the Task schema and fractional positions, validated CRUD routes, simulated write failures, and a repeatable 15-task seed script.
 - Open a PR into `main` and merge it on GitHub, not locally.
 
 Cleanup after the PR is merged:
 
 ```sh
-git checkout main && git pull origin main && git branch -d feature/project-setup
+git checkout main && git pull origin main && git branch -d feature/server-task-api
 ```
 
 ## HOW TO RESUME
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
 
-Next step: `server-task-api`.
+Next step: `kanban-crud-ui`.
