@@ -206,4 +206,4 @@ _Screenshot placeholder: add a board screenshot here after capturing the running
 ## Assessment documents
 
 - [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) contains the assessment transcript and implementation checklist.
-- `DECISIONS.md` is a required assessment deliverable and will be added in the decisions documentation step.
+- [`DECISIONS.md`](DECISIONS.md) answers the assessment's four required design and failure-analysis questions.
