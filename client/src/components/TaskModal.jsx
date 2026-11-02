@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { COLUMNS, useBoardStore } from '../store/boardStore.js';
+import { useDialogFocus } from '../hooks/useDialogFocus.js';
 
 function initialForm(task) {
   return {
@@ -30,16 +31,10 @@ export function TaskModal({ taskId, onClose }) {
   const [subtaskDrafts, setSubtaskDrafts] = useState({});
   const [subtaskPending, setSubtaskPending] = useState(false);
   const [subtaskError, setSubtaskError] = useState('');
+  const dialogRef = useRef(null);
   const isEditing = Boolean(taskId);
   const subtasks = isEditing ? task?.subtasks || [] : form.subtasks;
-
-  useEffect(() => {
-    function closeOnEscape(event) {
-      if (event.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [onClose]);
+  useDialogFocus(dialogRef, onClose);
 
   function changeField(event) {
     const { name, value } = event.target;
@@ -168,7 +163,7 @@ export function TaskModal({ taskId, onClose }) {
       className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"
       onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     >
-      <section role="dialog" aria-modal="true" aria-labelledby="task-modal-title" className="my-auto w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="task-modal-title" className="my-auto w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="task-modal-title" className="text-xl font-bold text-slate-900 dark:text-white">{isEditing ? 'Edit task' : 'Create task'}</h2>
