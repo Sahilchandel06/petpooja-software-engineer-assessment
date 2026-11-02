@@ -43,10 +43,10 @@ E. Tell me the exact next step name and wait for my "go".
 |---|---|
 | R1 | In progress |
 | R2 | In progress |
-| R3 | Not started |
+| R3 | Done |
 | R4 | Done |
 | R5 | Done |
-| R6 | Not started |
+| R6 | In progress |
 | R7 | Not started |
 | R8 | Not started |
 | R9 | Not started |
@@ -71,7 +71,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 |---:|---|---|
 | 1 | project-setup | DONE |
 | 2 | server-task-api | DONE |
-| 3 | kanban-crud-ui | TODO |
+| 3 | kanban-crud-ui | DONE |
 | 4 | drag-and-drop | TODO |
 | 5 | optimistic-ui | TODO |
 | 6 | concurrency | TODO |
@@ -99,6 +99,10 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Use `asyncHandler` to forward Promise failures to Express 4's central JSON error handler. Zod body validation and ObjectId path validation reject invalid requests with HTTP 400.
 - Apply `x-simulate-fail: true` only to POST/PATCH/DELETE routes.
 - `npm run seed` resets only the Task collection and creates 15 sample tasks (5 per column) with varied priorities, tags, and completed/partial subtasks.
+- Normalize client tasks as `tasksById` plus ordered ID arrays for each column, so cards subscribe only to their own task record and columns subscribe only to their order list.
+- Keep one Axios API function per task endpoint and put all board state transitions in the Zustand store.
+- Step 3 adds responsive three-column rendering, task create/edit/delete dialogs, loading/empty/error states, and memoized cards.
+- The temporary arrow controls update only local Zustand state; `/move` and drag-and-drop persistence remain for later steps.
 
 ## AI MISTAKES LOG
 
@@ -110,44 +114,41 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Server dependency installation reported 3 npm audit vulnerabilities (2 moderate, 1 high); review during tests-and-polish without applying unapproved version changes.
 - The seed command intentionally deletes every document from the Task collection before inserting its sample board. Do not run it against a database containing tasks that need to be kept.
 - Appending reads the last order index and then inserts; simultaneous POST requests can choose the same index. The concurrency step must harden this write path.
+- Temporary card move controls in the client are local only and their changes are discarded on refresh; persistent ordering/moves are deferred to step 4 and the concurrency work.
 - `README.md` and `DECISIONS.md` remain uncreated for their planned steps.
 - No `.env` files are committed. Copy the examples and configure MongoDB locally before running the apps.
-- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/server-task-api` and was given the checkout command.
+- Git branch checkout, remote configuration, and commit state were not verified because the AI must not run Git commands. The user specified `feature/kanban-crud-ui` and was given the checkout command.
 
 ## Last updated, current branch, last commit
 
 - Last updated: 2026-11-02
-- Current branch: `feature/server-task-api` (requested branch; checkout not verified)
+- Current branch: `feature/kanban-crud-ui` (requested branch; checkout not verified)
 - Last commit: not inspected (Git commands are reserved for the user)
 
 ## Defend it
 
-The client renders `App`, mounts `HealthStatus`, and calls the shared Axios instance at `GET {VITE_API_URL}/health`. The server loads dotenv, connects Mongoose, and only then listens. Express applies Helmet, CORS, JSON parsing, and Morgan before the health route and task router. Task requests flow through route validation and `asyncHandler` into thin controllers and the Task model; failures reach the central JSON error handler. Simulated write failures short-circuit in middleware.
+The client mounts `Board`, which fetches `/tasks` through the Zustand `fetchTasks` action and normalized API layer. Each column selects its ordered task IDs; each memoized card selects only its own task and the stable local-move action. Create/edit forms and the delete confirmation call store actions, which await the API and then reconcile normalized state. The server validates requests and forwards async controller failures to the shared JSON error handler.
 
-Trade-offs: startup fails fast when MongoDB is unavailable instead of serving a misleading healthy API. Midpoint positions avoid renumbering on every future move, while the pure rebalance helper handles exhausted gaps. Normal PATCH deliberately cannot change column/order; the dedicated move endpoint is deferred. Seeding resets the Task collection for repeatable evaluation, so it removes existing Task documents. Theme switching and persistence remain deferred.
+Trade-offs: normalized state avoids duplicating each task inside multiple column arrays, at the cost of looking up each card by ID. `React.memo` and narrow Zustand selectors limit unrelated card renders. The temporary arrow moves make ordering controls testable before drag-and-drop exists, but their state is local and disappears after a refresh. Theme switching and persistence remain deferred.
 
 Likely interview questions:
 
-1. **Why use a fractional `orderIndex`?** Inserting between two cards uses their midpoint instead of rewriting later cards; after repeated insertions, rebalance restores wider gaps.
-2. **How are invalid bodies and IDs handled?** Zod middleware validates bodies and an ObjectId validator checks route IDs before controllers run; errors flow through `asyncHandler` to a consistent JSON response.
-3. **Why does the seed script delete existing tasks?** A predictable reset gives evaluators the same sample board each run; it clears only the Task collection, so use a disposable database if existing tasks matter.
+1. **Why store tasks by ID and order separately?** The same task object has one canonical location in state, while column arrays describe ordering without copying task data.
+2. **How does memoization help?** Each `TaskCard` selects one task record and is wrapped in `React.memo`; changing a different task does not change its selector result or props.
+3. **Are the arrow moves persisted?** No. They exercise the local column/order state for this UI step; server move requests and drag-and-drop are planned for later steps.
 
 ## How to verify
 
-- Confirm `docs/REQUIREMENTS.md` includes the three-page transcript and requirements R1–R21.
-- No endpoint or seed commands were run in this step. Use the disposable/local database configured by `MONGO_URI`; `npm run seed --prefix server` deletes every Task document before inserting 15 sample tasks.
-- Start the API, set `$taskId = 'paste-the-_id-returned-by-POST'`, then use these PowerShell `curl.exe` examples.
-- `curl.exe -i http://localhost:5000/api/tasks` — list tasks.
-- `curl.exe -i -X POST http://localhost:5000/api/tasks -H "Content-Type: application/json" -d '{"title":"Check invoice export","columnId":"todo","priority":"High","tags":["billing"]}'` — create (201).
-- `curl.exe -i -X PATCH "http://localhost:5000/api/tasks/$taskId" -H "Content-Type: application/json" -d '{"title":"Review invoice export"}'` — update (200).
-- `curl.exe -i -X DELETE "http://localhost:5000/api/tasks/$taskId"` — delete (204).
-- `curl.exe -i -X POST http://localhost:5000/api/tasks -H "Content-Type: application/json" -H "x-simulate-fail: true" -d '{"title":"Simulated failure","columnId":"todo"}'` — simulated write failure (500).
-- `curl.exe -i -X PATCH http://localhost:5000/api/tasks/not-an-object-id -H "Content-Type: application/json" -d '{"title":"Bad id"}'` — validation failure (400).
-- `curl.exe -i -X PATCH http://localhost:5000/api/tasks/000000000000000000000000 -H "Content-Type: application/json" -d '{"title":"Missing task"}'` — valid ID with no matching task (404).
-
+- `npm run build --prefix client` (passed during this step).
+- Ensure `server/.env` points to a running MongoDB and `client/.env` has `VITE_API_URL=http://localhost:5000/api`, then run `npm run dev` from the repository root.
+- Open `http://localhost:5173`; confirm To Do, In Progress, and Done are visible. If using a disposable database, `npm run seed --prefix server` can populate sample cards; it deletes every existing Task document first.
+- Create a task, edit its title/priority/tags, and delete it. Confirm each change appears after the API response.
+- Use each arrow control and confirm the card moves locally. Refresh and confirm the temporary move is discarded.
+- With the API stopped, reload the page and confirm the error state and Retry control appear. Restart the API and retry.
+- Use keyboard Tab to reach controls, confirm visible focus, open either dialog, and close it with Escape.
 ## GIT COMMANDS
 
-The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI.
+The assessment requires feature-branch work merged through a Pull Request. These commands are for the user; no Git command has been run by the AI. Checkout of the requested branch remains unverified.
 
 Verification:
 
@@ -158,36 +159,40 @@ git status
 Atomic commits:
 
 ```sh
-git add server/src/models/Task.js server/src/utils/fractionalIndex.js
-git commit -m "feat: add task model and fractional index utility"
-git add server/src/controllers/taskController.js server/src/routes/taskRoutes.js server/src/middleware/validateRequest.js server/src/middleware/validateObjectId.js server/src/utils/asyncHandler.js server/src/app.js
-git commit -m "feat: add validated task CRUD endpoints"
-git add server/src/middleware/simulateFailure.js
-git commit -m "feat: add simulated write failure middleware"
-git add server/src/scripts/seed.js server/package.json server/package-lock.json
-git commit -m "feat: seed sample tasks across board columns"
+git add client/src/store/boardStore.js client/src/api/tasks.js
+git commit -m "feat: add normalized board store and task API"
+
+git add client/src/App.jsx client/src/components/Board.jsx client/src/components/Column.jsx client/src/components/TaskCard.jsx client/src/components/Header.jsx
+git add -A client/src/components/HealthStatus.jsx
+git commit -m "feat: build responsive kanban board and task cards"
+
+git add client/src/components/TaskModal.jsx client/src/components/ConfirmDelete.jsx
+git commit -m "feat: add task create edit and delete dialogs"
+
+git add client/src/components/EmptyState.jsx client/src/components/LoadingSkeleton.jsx client/src/components/ErrorState.jsx
+git commit -m "feat: add board loading empty and error states"
+
 git add CONTEXT.md
-git commit -m "docs: update context after server-task-api"
+git commit -m "docs: update context after kanban-crud-ui"
 ```
 
 Push:
 
 ```sh
-git push -u origin feature/server-task-api
+git push -u origin feature/kanban-crud-ui
 ```
 
 Pull Request:
 
-- Title: `feat: add TaskFlow task API`
-- Description: Add the Task schema and fractional positions, validated CRUD routes, simulated write failures, and a repeatable 15-task seed script.
+- Title: `feat: build TaskFlow Kanban CRUD interface`
+- Description: Add normalized Zustand state, task API functions, responsive board columns, task forms and delete confirmation, accessible states, and temporary local-only move controls.
 - Open a PR into `main` and merge it on GitHub, not locally.
 
 Cleanup after the PR is merged:
 
 ```sh
-git checkout main && git pull origin main && git branch -d feature/server-task-api
+git checkout main && git pull origin main && git branch -d feature/kanban-crud-ui
 ```
-
 ## HOW TO RESUME
 
 Start by reading `CONTEXT.md` and `docs/REQUIREMENTS.md`, then read `docs/ASSESSMENT.pdf` if source detail is needed. Continue only the named current step; do not implement later steps early. Follow the fixed stack and AI rules above. Do not run Git commands; print the exact commands for the user. At each step end, update this file and provide the defend-it, verification, and Git command sections, name the next step, and wait for the user's “go”.
