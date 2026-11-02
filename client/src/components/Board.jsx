@@ -85,10 +85,9 @@ export function Board() {
         previousId ? state.tasksById[previousId].orderIndex : null,
         nextId ? state.tasksById[nextId].orderIndex : null,
       );
-      state.moveTask(taskId, toColumnId, targetIndex).catch((error) => {
-        toast.error(error.response?.data?.error?.message || 'Could not move task.');
-      });
+      state.moveTask(taskId, toColumnId, targetIndex).catch(() => {});
     } catch (error) {
+      // The move store owns API-failure toasts; this covers local index-calculation failures.
       toast.error(error.message || 'Could not calculate a safe task position.');
     }
   }

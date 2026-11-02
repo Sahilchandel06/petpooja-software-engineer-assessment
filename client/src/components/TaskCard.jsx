@@ -25,6 +25,7 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
   } = useSortable({
     id: taskId,
     data: { type: 'task', taskId, columnId: task?.columnId },
+    disabled: Boolean(task?._pending),
   });
 
   if (!task) return null;
@@ -61,10 +62,12 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
       insertionIndex = targetIds.length;
     }
 
-    const targetIndex = getPositionIndex(targetIds, insertionIndex, state.tasksById);
-    moveTask(taskId, toColumnId, targetIndex).catch((error) => {
-      toast.error(error.response?.data?.error?.message || 'Could not move task.');
-    });
+    try {
+      const targetIndex = getPositionIndex(targetIds, insertionIndex, state.tasksById);
+      moveTask(taskId, toColumnId, targetIndex).catch(() => {});
+    } catch (error) {
+      toast.error(error.message || 'Could not calculate a safe task position.');
+    }
   }
 
   return (
@@ -75,7 +78,7 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
     >
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">
-          <button type="button" onClick={() => onEdit(taskId)} className="rounded text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-indigo-300">{task.title}</button>
+          <button type="button" disabled={task._pending} onClick={() => onEdit(taskId)} className="rounded text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait disabled:opacity-70 dark:hover:text-indigo-300">{task.title}</button>
         </h3>
         <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${priorityClasses[task.priority]}`}>
           {task.priority}
@@ -105,13 +108,13 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
-        <button type="button" onClick={() => onEdit(taskId)} aria-label={`Edit ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300 dark:hover:bg-slate-700">Edit</button>
-        <button type="button" onClick={() => onDelete(taskId)} aria-label={`Delete ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:text-rose-300 dark:hover:bg-slate-700">Delete</button>
+        <button type="button" disabled={task._pending} onClick={() => onEdit(taskId)} aria-label={`Edit ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait disabled:opacity-50 dark:text-indigo-300 dark:hover:bg-slate-700">Edit</button>
+        <button type="button" disabled={task._pending} onClick={() => onDelete(taskId)} aria-label={`Delete ${task.title}`} className="rounded px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-wait disabled:opacity-50 dark:text-rose-300 dark:hover:bg-slate-700">Delete</button>
         <div className="ml-auto flex gap-1" role="group" aria-label="Temporary local move controls">
-          <button type="button" disabled={columnIndex === 0} onClick={() => handleMove('left')} aria-label={`Move ${task.title} to previous column`} title="Previous column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">←</button>
-          <button type="button" disabled={columnIndex === COLUMNS.length - 1} onClick={() => handleMove('right')} aria-label={`Move ${task.title} to next column`} title="Next column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">→</button>
-          <button type="button" disabled={isFirst} onClick={() => handleMove('up')} aria-label={`Move ${task.title} up`} title="Move up" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↑</button>
-          <button type="button" disabled={isLast} onClick={() => handleMove('down')} aria-label={`Move ${task.title} down`} title="Move down" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↓</button>
+          <button type="button" disabled={task._pending || columnIndex === 0} onClick={() => handleMove('left')} aria-label={`Move ${task.title} to previous column`} title="Previous column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">←</button>
+          <button type="button" disabled={task._pending || columnIndex === COLUMNS.length - 1} onClick={() => handleMove('right')} aria-label={`Move ${task.title} to next column`} title="Next column" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">→</button>
+          <button type="button" disabled={task._pending || isFirst} onClick={() => handleMove('up')} aria-label={`Move ${task.title} up`} title="Move up" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↑</button>
+          <button type="button" disabled={task._pending || isLast} onClick={() => handleMove('down')} aria-label={`Move ${task.title} down`} title="Move down" className="rounded border border-slate-300 px-2 py-1 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-700">↓</button>
         </div>
       </div>
     </article>

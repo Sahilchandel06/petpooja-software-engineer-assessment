@@ -66,7 +66,6 @@ export function TaskModal({ taskId, onClose }) {
     } catch (error) {
       const message = error.response?.data?.error?.message || error.message || 'Could not save task.';
       setFormError(message);
-      toast.error(message);
     } finally {
       setSaving(false);
     }
