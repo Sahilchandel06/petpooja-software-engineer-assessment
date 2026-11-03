@@ -389,3 +389,91 @@ Next step: submission checklist (deployment and GitHub verification remain user 
 - Deployment troubleshooting: Render's free backend displays a warning that wake-up requests may take 50 seconds or more, while Axios originally timed out after 10 seconds. The client timeout is now 90 seconds to allow a cold start; client lint and production build passed. The user must push/redeploy this client change and verify that Render `CLIENT_ORIGIN` exactly matches the Vercel production origin. The public deployment could not be reached from the assistant's network, so no end-to-end claim is made.
 - User feedback led to a layout correction: removed the board minimum-width/scroll wrapper, fixed 280–360px column caps, and column `overflow-y-auto`. Columns now use equal flexible tracks and task lists use natural height; narrow screens stack the columns to avoid a horizontal scrollbar. After the correction, `npm run lint` and `npm run build --prefix client` both passed. Browser rendering at the target widths remains to be checked manually.
 - Next step: submission checklist (deployment and GitHub verification remain user actions).
+
+## Frontend design skill refinement (2026-11-03)
+
+- Status: Implemented; manual browser review remains pending.
+- Applied the user-provided frontend-design direction to the existing TaskFlow board while preserving the project’s Jira/Linear density, Inter type scale, CSS token palette, keyboard support, and reduced-motion behavior.
+- Visual choice: use the board itself as the first view and make workflow lanes distinct with a thin status-colored top rail. Remove the generic uppercase workspace eyebrow, the duplicate total count in the header, and the placeholder current-user avatar because there is no user or assignee data model.
+- Copy/layout refinement: keep task language consistent, use sentence-case lane headings, flatten the search/filter wrapper into a toolbar, and preserve the existing responsive three-column board and dialogs.
+- No state store, operation queue, theme initialization, API, or database behavior was changed. No dependency was added.
+- Verification: `npm run lint --prefix client` passed; `npm run build --prefix client` passed. No tests were run. Raw hex scan found no hard-coded hex colors in the edited components or `App.jsx`.
+- Manual checks still needed: inspect light and dark themes at 375, 768, and 1280px; verify drag-and-drop, keyboard controls, filters, rollback, theme toggle, checklist progress, and empty/loading/error states. Browser screenshot review was not performed in this step.
+- Active branch was not inspected; the previous project notes record `feature/project-setup` as the user-selected branch.
+- Files changed, grouped by feature: UI presentation and copy — `client/src/App.jsx`, `client/src/components/Board.jsx`, `client/src/components/Column.jsx`, `client/src/components/EmptyState.jsx`, `client/src/components/Header.jsx`, `client/src/components/TaskCard.jsx`, `client/src/components/TaskFilters.jsx`, `client/src/components/TaskModal.jsx`; step notes — `CONTEXT.md`.
+- Next step: manual frontend review and final compliance audit.
+
+### Frontend refinement defense
+
+The board renders `Header`, the board overview, search/filter controls, and three `Column` components. Each column maps its workflow status to an existing CSS token for the top rail and status dot. Task data still comes from the same Zustand selectors, and `TaskCard` still owns the existing move actions. The filter toolbar and task dialog copy were adjusted without changing request or store behavior.
+
+Trade-off: the new lane rail adds a clear workflow cue with little visual weight, while the actual column title remains visible so status is not conveyed by color alone. The unassigned avatar was removed because the application has no assignee data; the global theme and create controls remain available.
+
+Likely interview questions:
+
+1. **Why use status colors on columns?** They help distinguish workflow lanes at a glance. The text heading remains, so users do not need to interpret color to know the status.
+2. **Why remove the avatar?** There is no user or assignment data in the task model; a fixed initial suggested a real identity feature that the app does not implement.
+3. **Did this change optimistic behavior?** No. The Zustand store, move queue, request payloads, rollback logic, and server concurrency behavior were left untouched.
+
+### Frontend refinement verification
+
+- `npm run lint --prefix client` passed.
+- `npm run build --prefix client` passed.
+- Manual browser checks at 375, 768, and 1280px in light and dark modes remain pending, as do drag, keyboard, filter, rollback, theme, and checklist interaction checks.
+
+## Expandable task descriptions (2026-11-03, superseded)
+
+- Status: Reverted per user request; see the description disclosure rollback entry below.
+- Task descriptions stay clamped to two lines initially. A `Show more` / `Show less` button appears only when the rendered text overflows, using `ResizeObserver` to recalculate when the card width changes and a window-resize fallback where `ResizeObserver` is unavailable.
+- The control exposes `aria-expanded` and `aria-controls`, uses the shared Button primitive, and remains separate from the drag handle. Expansion is local to the card; no API or store changes are needed.
+- Verification: `npm run lint --prefix client` and `npm run build --prefix client` passed. No tests were run. Manually confirm long descriptions show the control, short descriptions do not, expansion/collapse works, and drag remains usable at narrow and wide card widths.
+- Active branch was not inspected; previous project notes record `feature/project-setup` as the user-selected branch.
+- Files changed, grouped by feature: task description disclosure — `client/src/components/TaskCard.jsx`; step notes — `CONTEXT.md`.
+- Next step: manual frontend interaction review and final compliance audit.
+
+### Expandable description defense
+
+`TaskCard` measures its collapsed description element. If `scrollHeight` exceeds `clientHeight`, the shared Button is rendered. Activating it toggles the line clamp and updates the accessible expanded state. A resize observer recalculates overflow when responsive layout changes the card width. The drag sensor remains attached only to the dedicated grip button.
+
+Trade-off: this keeps cards compact by default while allowing full descriptions without opening the edit dialog. The control is omitted when the description fits in two lines; measurement depends on browser layout and should be checked visually.
+
+Likely interview questions:
+
+1. **Why measure overflow instead of always showing “Show more”?** It avoids adding an unnecessary control to cards whose descriptions already fit.
+2. **Why use `ResizeObserver`?** Card width can change with the responsive grid without a window resize, so the overflow check needs to follow the description element itself.
+3. **Can the disclosure trigger a drag?** The move listeners are bound only to the grip button; the disclosure is a separate button.
+
+### Expandable description verification
+
+- `npm run lint --prefix client` passed.
+- `npm run build --prefix client` passed.
+- Manual verification of long/short descriptions, keyboard activation, responsive resizing, both themes, and drag behavior remains pending.
+
+## Description disclosure rollback (2026-11-03)
+
+- Status: Complete. Removed the `Show more` / `Show less` control and restored the original two-line description clamp, as requested.
+- No store, API, or drag behavior changed.
+- Verification: `npm run lint --prefix client` and `npm run build --prefix client` passed after the revert. No tests were run.
+- Files changed, grouped by feature: description preview — `client/src/components/TaskCard.jsx`; step notes — `CONTEXT.md`.
+- Next step: wait for the user’s next frontend direction.
+
+## Automated verification sweep (2026-11-03)
+
+- Status: Passed automated checks.
+- `npm test`: passed 7 server tests and 4 client store tests, including API CRUD/validation, stale move conflicts, idempotent retry, concurrent moves, checklist writes, optimistic state, rollback, and queue ordering.
+- `npm run lint`: passed for server and client.
+- `npm run build --prefix client`: passed.
+- Not run: `npm run seed`, because it deletes all tasks in the configured database; `server/scripts/concurrencyTest.js`, because it writes test records to the configured API/database. Browser-level visual checks and live deployment checks remain unverified.
+- No Git commands were run; branch and working-tree state were not inspected.
+- Files changed, grouped by feature: verification notes — `CONTEXT.md`.
+- Next step: manual browser review and final submission compliance review.
+
+### Verification defense
+
+The server suite uses its test database setup and covers API validation, task lifecycle, move conflict/idempotency/concurrency paths, and atomic checklist endpoints. The client suite covers board-store transitions, rollback, and FIFO ordering. Lint checks both app roots; Vite builds the client bundle. These checks do not prove responsive appearance, deployment health, seed behavior against a disposable database, or the external GitHub workflow.
+
+Likely interview questions:
+
+1. **What concurrency behavior is covered automatically?** The API integration tests cover concurrent moves, stale-version conflicts, and replay of a move operation with the same UUID; client tests cover optimistic rollback and queue ordering.
+2. **Why skip the seeder and standalone concurrency script?** The seeder clears the configured task collection, and the standalone script writes marked test tasks through the configured API. Neither was run against an explicitly disposable target.
+3. **Does a passing build mean the deployed app is verified?** No. It confirms Vite can produce the frontend bundle; browser interaction and deployed service checks still need to be performed.

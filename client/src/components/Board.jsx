@@ -18,9 +18,7 @@ import { ErrorState } from './ErrorState.jsx';
 import { Header } from './Header.jsx';
 import { LoadingSkeleton } from './LoadingSkeleton.jsx';
 import { TaskModal } from './TaskModal.jsx';
-import { Badge } from './ui/Badge.jsx';
 import { Button } from './ui/Button.jsx';
-import { Layers3 } from 'lucide-react';
 import { TaskFilters } from './TaskFilters.jsx';
 
 export function Board() {
@@ -110,8 +108,7 @@ export function Board() {
     <main className="mx-auto min-h-screen w-full max-w-7xl bg-app px-4 pb-10 text-primary sm:px-6 lg:px-8">
       <Header onCreateTask={openCreate} />
       <section className="mb-5 flex flex-wrap items-end justify-between gap-3" aria-label="Board overview">
-        <div><p className="mb-1 text-meta font-semibold uppercase tracking-wide text-accent">Workspace / Product</p><h1 className="text-page font-semibold text-primary">Team board</h1><p className="mt-1 text-secondary">Plan, prioritize, and track work across the team.</p></div>
-        <Badge><Layers3 size={13} className="mr-1" aria-hidden="true" />{taskCount} {taskCount === 1 ? 'issue' : 'issues'}</Badge>
+        <div><h1 className="text-page font-semibold text-primary">Team board</h1><p className="mt-1 text-secondary">Move tasks through each stage as work progresses.</p></div>
       </section>
       <TaskFilters query={query} onQueryChange={setQuery} priorities={priorities} onPrioritiesChange={setPriorities} columns={columns} onColumnsChange={setColumns} resultCount={Object.values(visibleIdsByColumn).reduce((total, ids) => total + ids.length, 0)} totalCount={taskCount} />
       {error && taskCount > 0 && (

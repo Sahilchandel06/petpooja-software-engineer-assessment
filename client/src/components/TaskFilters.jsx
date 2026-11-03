@@ -30,12 +30,12 @@ export function TaskFilters({ query, onQueryChange, priorities, onPrioritiesChan
   }
 
   return (
-    <section className="mb-4 rounded-column border border-border-subtle bg-column p-3" aria-label="Search and filter tasks">
+    <section className="mb-4 border-y border-border-subtle py-3" aria-label="Search and filter tasks">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search task titles and descriptions</span>
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input value={input} onChange={(event) => setInput(event.target.value)} type="search" placeholder="Search tasks…" className="min-h-10 w-full rounded-button border border-border-subtle bg-card pl-9 pr-3 text-body text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
+          <input value={input} onChange={(event) => setInput(event.target.value)} type="search" placeholder="Search tasks..." className="min-h-10 w-full rounded-button border border-border-subtle bg-card pl-9 pr-3 text-body text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
         </label>
         <fieldset className="flex flex-wrap items-center gap-1.5">
           <legend className="sr-only">Filter by priority</legend>

@@ -169,7 +169,6 @@ export function TaskModal({ taskId, initialColumnId = 'todo', onClose }) {
       <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="task-modal-title" className="my-auto w-full max-w-3xl overflow-hidden rounded-column border border-border-subtle bg-elevated text-primary shadow-overlay animate-modal-in">
         <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4 sm:px-6">
           <div>
-            <p className="text-meta font-semibold uppercase tracking-wide text-accent">{isEditing ? 'Edit issue' : 'New issue'}</p>
             <h2 id="task-modal-title" className="mt-1 text-page font-semibold text-primary">{isEditing ? 'Update task' : 'Create task'}</h2>
             <p className="mt-1 text-secondary text-muted">Fields marked required must be filled in.</p>
           </div>
@@ -179,11 +178,11 @@ export function TaskModal({ taskId, initialColumnId = 'todo', onClose }) {
         <form onSubmit={submit} noValidate>
           <div className="grid max-h-[min(70vh,700px)] grid-cols-1 gap-6 overflow-y-auto p-5 sm:grid-cols-[minmax(0,1.4fr)_minmax(220px,.8fr)] sm:px-6">
             <div className="space-y-4">
-            <Input id="task-title" label={<>Summary <span aria-hidden="true">*</span></>} name="title" value={form.title} onChange={changeField} maxLength={120} required autoFocus error={titleValidationError} placeholder="Write a concise issue title" />
+            <Input id="task-title" label={<>Task title <span aria-hidden="true">*</span></>} name="title" value={form.title} onChange={changeField} maxLength={120} required autoFocus error={titleValidationError} placeholder="Write a concise task title" />
 
             <div>
               <label htmlFor="task-description" className="mb-1.5 block text-secondary font-medium">Description</label>
-              <textarea id="task-description" name="description" value={form.description} onChange={changeField} rows="4" placeholder="Add details, context, or acceptance criteria…" className="w-full rounded-button border border-border-strong bg-elevated px-3 py-2 text-body text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
+              <textarea id="task-description" name="description" value={form.description} onChange={changeField} rows="4" placeholder="Add details, context, or acceptance criteria..." className="w-full rounded-button border border-border-strong bg-elevated px-3 py-2 text-body text-primary placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" />
             </div>
 
             <fieldset className="rounded-card border border-border-subtle p-3" disabled={saving || subtaskPending}>
@@ -216,7 +215,7 @@ export function TaskModal({ taskId, initialColumnId = 'todo', onClose }) {
                   </Select>
                 </div>
               )}
-              {isEditing && <div><span className="mb-1.5 block text-secondary font-medium">Status</span><p className="rounded-button border border-border-subtle bg-card px-3 py-2 text-body text-secondary">{COLUMNS.find(({ id }) => id === task?.columnId)?.title || 'Unknown'}</p><p className="mt-1 text-meta text-muted">Move this issue from its card menu or drag it to another column.</p></div>}
+              {isEditing && <div><span className="mb-1.5 block text-secondary font-medium">Status</span><p className="rounded-button border border-border-subtle bg-card px-3 py-2 text-body text-secondary">{COLUMNS.find(({ id }) => id === task?.columnId)?.title || 'Unknown'}</p><p className="mt-1 text-meta text-muted">Move this task from its card menu or drag it to another column.</p></div>}
             </div>
 
             <Input id="task-tags" label={<>Labels <span className="font-normal text-muted">(comma-separated)</span></>} name="tags" value={form.tags} onChange={changeField} placeholder="design, frontend" />
@@ -226,7 +225,7 @@ export function TaskModal({ taskId, initialColumnId = 'todo', onClose }) {
           {formError && !titleValidationError && <p id="task-form-error" className="px-6 pb-2 text-secondary font-medium text-danger" role="alert">{formError}</p>}
           <div className="flex justify-end gap-2 border-t border-border-subtle bg-card px-5 py-4 sm:px-6">
             <button type="button" onClick={onClose} className="min-h-9 rounded-button border border-border-strong px-3 text-body font-medium text-secondary hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">Cancel</button>
-            <button type="submit" disabled={saving || subtaskPending} className="min-h-9 rounded-button bg-accent px-3 text-body font-semibold text-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-50">{saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task'}</button>
+            <button type="submit" disabled={saving || subtaskPending} className="min-h-9 rounded-button bg-accent px-3 text-body font-semibold text-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-50">{saving ? 'Saving...' : isEditing ? 'Save changes' : 'Create task'}</button>
           </div>
         </form>
       </section>

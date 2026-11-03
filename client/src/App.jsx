@@ -10,8 +10,8 @@ export default function App() {
         toastOptions={{
           className: 'border border-border-subtle bg-elevated text-primary shadow-overlay',
           style: { background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' },
-          success: { iconTheme: { primary: '#216e4e', secondary: '#ffffff' } },
-          error: { iconTheme: { primary: '#ae2e24', secondary: '#ffffff' } },
+          success: { iconTheme: { primary: 'var(--success)', secondary: 'var(--bg-elevated)' } },
+          error: { iconTheme: { primary: 'var(--danger)', secondary: 'var(--bg-elevated)' } },
         }}
       />
     </>

@@ -5,7 +5,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getIndexForPosition } from '../utils/fractionalIndex.js';
 import { COLUMNS, useBoardStore } from '../store/boardStore.js';
-import { Avatar } from './ui/Avatar.jsx';
 import { Badge } from './ui/Badge.jsx';
 import { IconButton } from './ui/IconButton.jsx';
 
@@ -94,7 +93,7 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
       {task.description && <p className="ml-8 mt-2 min-w-0 break-words line-clamp-2 text-secondary text-muted">{task.description}</p>}
 
       {checklist.length > 0 && <div className="ml-8 mt-3">
-        <div className="mb-1 flex items-center justify-between text-meta text-secondary"><span>Checklist</span><span>{completedCount}/{checklist.length} · {percent}%</span></div>
+        <div className="mb-1 flex items-center justify-between text-meta text-secondary"><span>Checklist</span><span>{completedCount} of {checklist.length} done, {percent}%</span></div>
         <div role="progressbar" aria-label={`Checklist progress for ${task.title}`} aria-valuemin={0} aria-valuemax={checklist.length} aria-valuenow={completedCount} aria-valuetext={`${completedCount} of ${checklist.length} complete, ${percent}%`} className="h-1.5 overflow-hidden rounded-full bg-column">
           <div className={`h-full rounded-full transition-[width] duration-[300ms] ease-out motion-reduce:transition-none ${percent === 100 ? 'bg-success' : 'bg-accent'}`} style={{ width: `${percent}%` }} />
         </div>
@@ -105,7 +104,6 @@ export const TaskCard = memo(function TaskCard({ taskId, isFirst, isLast, onEdit
         <div className="flex items-center gap-2"><span className="sr-only">Move controls</span>
           <IconButton label={`Move ${task.title} up`} disabled={task._pending || isFirst} onClick={() => move('up')}><ArrowUp size={14} /></IconButton>
           <IconButton label={`Move ${task.title} down`} disabled={task._pending || isLast} onClick={() => move('down')}><ArrowDown size={14} /></IconButton>
-          <Avatar label={`Unassigned: ${task.title}`} initials="—" />
         </div>
       </footer>
     </article>
