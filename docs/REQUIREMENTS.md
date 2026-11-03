@@ -150,6 +150,7 @@ Statuses indicate implementation progress, not merely that the requirement has b
 | R19 | Use descriptive, atomic conventional commits (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`, or `style`). | In progress |
 | R20 | Complete and submit within the 48-hour take-home window. | In progress |
 | R21 | Demonstrate complete mastery of every submitted line: explain runtime mechanics, alternatives, and trade-offs; walk through an arbitrary hook, middleware, or controller from client render to database write; live-modify code; and provide an honest AI debugging retrospective. | In progress |
+| R22 | User-requested optional enhancement (not an additional wildcard selection): debounced title/description search and multi-select priority/column filters while preserving card move interactions. | Done |
 
 ## User-selected implementation constraints
 
@@ -157,6 +158,7 @@ Statuses indicate implementation progress, not merely that the requirement has b
 - Client: React + Vite + Tailwind CSS + Zustand + `@dnd-kit` + `react-hot-toast` + axios.
 - Server: Node.js + Express + Mongoose (MongoDB), request validation with zod.
 - Wildcard: Option 3 (Nested Checklist and animated Progress bar).
+- Optional enhancement: search and filtering are separate from the one selected wildcard; the PDF permits additional features and subjects them to technical assessment.
 - No unapproved libraries; do not build beyond the current step.
 
 

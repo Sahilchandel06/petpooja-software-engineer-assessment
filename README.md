@@ -11,6 +11,7 @@ TaskFlow is a responsive MERN Kanban board built for the engineering assessment 
 - A FIFO move request queue, version conflict handling, UUID idempotency keys, and transactional order-index rebalancing.
 - Optional development switch in the header to simulate failed writes.
 - Nested checklist editing and an animated completion progress bar on each card.
+- Debounced task search across titles/descriptions and multi-select priority/column filters; filtering leaves card move controls and column drop targets available.
 - Light and dark themes, persisted across reloads without an initial flash.
 
 ## Tech stack

@@ -2,6 +2,8 @@
 
 This document records the decisions and limitations of the current TaskFlow assessment implementation. It describes what is in this repository today and separates that from changes I would make at higher scale.
 
+The single selected wildcard is Option 3 (nested checklist and progress). The assessment explicitly permits additional features, so I added client-side debounced search and multi-select priority/column filters as a separate enhancement inspired by Option 1. I am not presenting it as a second wildcard selection. The filtered view keeps the columns, drag targets, and card move actions available; filters affect visibility only.
+
 ## 1. State architecture and library selection
 
 I chose Zustand for the client board state. The board needs a small number of shared actions—fetch, create, edit, delete, and move—and it needs to update immediately when a user moves a card. Zustand lets the UI call those actions without threading callbacks through the component tree. I keep tasks normalized in `tasksById` and keep each column's order in a separate ID list. Components select only the data they need, which helps avoid rerendering every card when an unrelated task changes.

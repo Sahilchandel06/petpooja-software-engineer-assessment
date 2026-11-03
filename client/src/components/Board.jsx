@@ -21,15 +21,26 @@ import { TaskModal } from './TaskModal.jsx';
 import { Badge } from './ui/Badge.jsx';
 import { Button } from './ui/Button.jsx';
 import { Layers3 } from 'lucide-react';
+import { TaskFilters } from './TaskFilters.jsx';
 
 export function Board() {
   const fetchTasks = useBoardStore((state) => state.fetchTasks);
   const loading = useBoardStore((state) => state.loading);
   const error = useBoardStore((state) => state.error);
   const taskCount = useBoardStore((state) => Object.keys(state.tasksById).length);
+  const tasksById = useBoardStore((state) => state.tasksById);
+  const columnIds = useBoardStore((state) => state.columnIds);
   const [taskModal, setTaskModal] = useState(null);
   const [deleteTaskId, setDeleteTaskId] = useState(null);
   const [activeTaskId, setActiveTaskId] = useState(null);
+  const [query, setQuery] = useState('');
+  const [priorities, setPriorities] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const visibleIdsByColumn = Object.fromEntries(COLUMNS.map(({ id }) => [id, columnIds[id].filter((taskId) => {
+    const task = tasksById[taskId];
+    const matchesQuery = !query || `${task.title} ${task.description || ''}`.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+    return matchesQuery && (!priorities.length || priorities.includes(task.priority)) && (!columns.length || columns.includes(task.columnId));
+  })]));
   const activeTask = useBoardStore((state) => (activeTaskId ? state.tasksById[activeTaskId] : null));
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -102,6 +113,7 @@ export function Board() {
         <div><p className="mb-1 text-meta font-semibold uppercase tracking-wide text-accent">Workspace / Product</p><h1 className="text-page font-semibold text-primary">Team board</h1><p className="mt-1 text-secondary">Plan, prioritize, and track work across the team.</p></div>
         <Badge><Layers3 size={13} className="mr-1" aria-hidden="true" />{taskCount} {taskCount === 1 ? 'issue' : 'issues'}</Badge>
       </section>
+      <TaskFilters query={query} onQueryChange={setQuery} priorities={priorities} onPrioritiesChange={setPriorities} columns={columns} onColumnsChange={setColumns} resultCount={Object.values(visibleIdsByColumn).reduce((total, ids) => total + ids.length, 0)} totalCount={taskCount} />
       {error && taskCount > 0 && (
         <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-danger bg-danger-subtle p-3 text-body text-danger">
           <span>{error}</span>
@@ -123,7 +135,7 @@ export function Board() {
         >
           <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-board" aria-label="Task columns">
             {COLUMNS.map((column) => (
-              <Column key={column.id} column={column} onEditTask={openEdit} onDeleteTask={setDeleteTaskId} onCreateTask={openCreate} />
+              <Column key={column.id} column={column} taskIds={visibleIdsByColumn[column.id]} onEditTask={openEdit} onDeleteTask={setDeleteTaskId} onCreateTask={openCreate} />
             ))}
           </div>
           <DragOverlay>{activeTask && <DragPreview task={activeTask} />}</DragOverlay>

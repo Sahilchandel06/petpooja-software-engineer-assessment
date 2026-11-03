@@ -8,8 +8,9 @@ import { IconButton } from './ui/IconButton.jsx';
 
 const statusStyles = { todo: 'bg-status-todo', 'in-progress': 'bg-status-progress', done: 'bg-status-done' };
 
-export function Column({ column, onEditTask, onDeleteTask, onCreateTask }) {
-  const taskIds = useBoardStore((state) => state.columnIds[column.id]);
+export function Column({ column, taskIds: visibleTaskIds, onEditTask, onDeleteTask, onCreateTask }) {
+  const storedTaskIds = useBoardStore((state) => state.columnIds[column.id]);
+  const taskIds = visibleTaskIds || storedTaskIds;
   const { setNodeRef, isOver } = useDroppable({ id: `column-${column.id}`, data: { type: 'column', columnId: column.id } });
 
   return (

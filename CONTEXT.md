@@ -6,7 +6,7 @@ Build the TaskFlow resilient Kanban assessment from `docs/ASSESSMENT.pdf`, the s
 
 - Client: React, Vite, Tailwind CSS, Zustand, `@dnd-kit`, `react-hot-toast`, axios; plain JavaScript.
 - Server: Node.js, Express, Mongoose with MongoDB, zod validation; plain JavaScript.
-- Selected wildcard: Option 3, nested checklists with animated progress bars.
+- Selected wildcard: Option 3, nested checklists with animated progress bars. The assessment also permits extra features; search and filtering are implemented as a separate enhancement, not a second wildcard selection.
 
 ## RULES FOR THE AI
 
@@ -84,6 +84,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 | 10 | readme-docs | DONE |
 | 11 | decisions-md | DONE |
 | 12 | final-audit | DONE |
+| 13 | search-filter-enhancement | DONE |
 
 ## Key architecture decisions
 
@@ -95,7 +96,8 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Use Tailwind CSS v3 with `darkMode: 'class'`. PostCSS and Autoprefixer are included as Tailwind build plumbing.
 - Use root `concurrently` to run both development servers together.
 - For production, the user has selected MongoDB Atlas and wants the site deployed to cloud hosting. Local `.env` examples remain for development; deploy the API with Atlas `MONGO_URI` and the exact frontend `CLIENT_ORIGIN`, then build the static client with `VITE_API_URL` pointed at the deployed API. Hosting provider selection is pending.
-- Implement only wildcard Option 3: nested checklist and animated completion progress.
+- Implement Option 3 as the single selected wildcard: nested checklist and animated completion progress. The PDF explicitly permits extra features, so the user-requested search/filter controls are documented separately as an enhancement inspired by Option 1; the project does not claim Option 1 as a second selected wildcard.
+- Add client-only task search with a 300 ms debounce over title/description and multi-select priority/column filter chips. Derive visible IDs from existing Zustand records; keep all three column drop zones mounted and retain task move controls while filters are active.
 - Step 1 adds the Node/Express and Vite/React skeletons, lockfiles, a health route, and a client health check. Task features remain for their later steps.
 - Step 2 adds a Mongoose Task model with timestamps, explicit `version`, subtasks, tags, and the `{ columnId, orderIndex }` index.
 - Use numeric fractional positions. Append by adding 1000; insert between neighbors with a midpoint; rebalance to spaced 1000 increments when a neighboring gap reaches epsilon.
@@ -146,7 +148,7 @@ Status meanings: Not started / In progress / Done / Verified. Use “Done” for
 - Step 11 verification passed: all four decision headings are present, the retrospective examples match the existing mistake log, `npm test` passes (7 server and 4 client tests), `npm run lint` passes, and the client production build passes.
 - Step 12 audits R1–R21 against the assessment and source lines. It corrected the PDF transcript character encoding in `docs/REQUIREMENTS.md`, aligned R15/R17 statuses with completed deliverables, corrected the README tree rendering, and left R1 in progress because deployment is not configured.
 - Final compliance audit re-read the 3-page source PDF and compared it with the transcript in `docs/REQUIREMENTS.md`. The complete-mastery/live-walkthrough requirement is now explicit in R21, including the arbitrary hook, middleware, or controller path from client render to database write. No other substantive source requirement was missing from the transcript.
-- Final compliance audit re-inspected the implementation files and found no feature-level FAIL that warranted refactoring. It confirmed that only wildcard Option 3 (nested checklist/progress) exists. R1 remains in progress because no deployment is configured; R18-R20 and the candidate's live-defense ability remain unverified external requirements.
+- The final compliance audit identified no feature-level FAIL that warranted refactoring at that time. Search/filter was added later as an assessment-permitted enhancement; Option 3 remains the only selected wildcard. R1 deployment and R18-R20/live-defense external checks remain unverified.
 - Final audit verification reran `npm test` (7 server + 4 client tests passed), `npm run lint` (server and client passed), and `npm run build --prefix client` (passed). The standalone concurrency script, browser/manual checks, deployment, Git history, remote branch/PR state, and secret history were not verified. The AI must not run Git commands.
 
 ## AI MISTAKES LOG
@@ -342,6 +344,16 @@ Pull Request:
 
 - Final PR title (after the remaining steps): `feat: complete TaskFlow assessment implementation`
 - Final PR description: Complete the assessment in ordered steps on `feature/project-setup`, with resilient task CRUD, concurrent moves, accessible themes, the selected checklist wildcard, tests, and required documentation. Merge the completed PR into `main` on GitHub, not locally.
+
+## Step 13: search-filter-enhancement
+
+The assessment says to pick exactly one wildcard and separately says additional features are welcome subject to technical assessment. Option 3 remains the selected wildcard. Search and filtering are an extra board enhancement requested by the user, not a second wildcard selection. `TaskFilters` debounces title/description search by 300 ms and offers multi-select priority and column chips. The board derives visible task IDs locally, without API changes or new dependencies. All columns remain mounted as drop targets, and visible cards retain their drag and button move actions while filters are active. Clear filters restores the full board.
+
+Verification performed: `npm run lint` passed for server and client; `npm run build --prefix client` passed. Browser/manual interaction checks remain pending: search by title and description; combine multiple priority and column chips; clear; drag a visible card within/across columns and into an empty visible column; use card move controls while filtered. The new optional R22 enhancement is implemented and documented, but not marked Verified until those manual checks run.
+
+Known limitation: drag placement is anchored to the underlying full column order around the visible drop target; cards hidden by filters remain in their existing relative order. Search/filter state is local to the current page and is not persisted.
+
+Next step: user review of the enhancement and manual filtered-drag checks. Current branch: `feature/project-setup` per the persistent branch instruction. Last commit: not inspected (Git commands are reserved for the user).
 - Open and merge the final PR only after the user has reviewed the audit's pending deployment and GitHub verification items.
 
 Cleanup after the PR is merged:
