@@ -2,6 +2,8 @@
 
 TaskFlow is a responsive MERN Kanban board built for the engineering assessment in [`docs/ASSESSMENT.pdf`](docs/ASSESSMENT.pdf). It focuses on immediate client feedback, safe ordering under concurrent moves, accessible light and dark themes, and the selected wildcard: nested checklists with animated task progress.
 
+**Live demo:** [https://petpooja-software-engineer-assessme-blue.vercel.app/](https://petpooja-software-engineer-assessme-blue.vercel.app/)
+
 ## Features
 
 - Three task columns: To Do, In Progress, and Done.
@@ -208,15 +210,6 @@ The application is configured for a separate static frontend, API service, and M
 - **MongoDB Atlas:** create a database user for the app and allow the API host's outbound IP/network in the Atlas project's IP access list. Atlas supports the transactions used by card moves. Keep the Atlas URI in the API provider's secret environment settings; do not commit it or use the seeder against production data.
 
 Deploy the API first, then set the frontend's `VITE_API_URL` and the API's `CLIENT_ORIGIN` to their deployed URLs. Rebuild/redeploy the frontend after changing `VITE_API_URL`, because Vite embeds that value during its build.
-
-## Screenshots
-
-Capture and commit these screenshots after running the application; the paths are placeholders until the images are captured:
-
-- [ ] Light board: `docs/screenshots/board-light.png`
-- [ ] Dark board: `docs/screenshots/board-dark.png`
-- [ ] Drag interaction with the overlay visible: `docs/screenshots/drag-overlay.png`
-- [ ] Task create/edit modal: `docs/screenshots/task-modal.png`
 
 ## Assessment documents
 
